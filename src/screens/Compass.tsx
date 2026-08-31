@@ -16,7 +16,7 @@ import {
 } from "../lib/ipc";
 import { FadeIn, MotionBox, staggerContainer, staggerItem } from "../ui/motion";
 import { IconPlus, IconSparkle } from "../ui/icons";
-import { Card, FieldLabel } from "../ui/primitives";
+import { Card, FieldLabel, PageHeader } from "../ui/primitives";
 import { Async, EmptyState, humanError, useAsync } from "../ui/states";
 import { toaster } from "../ui/toaster";
 
@@ -35,7 +35,9 @@ export function Compass({ ctx }: { ctx: Ctx }) {
   const current = active ?? domains.data?.[0];
 
   return (
-    <Async
+    <>
+      <PageHeader title="Ta boussole" sub="Ce qui compte pour toi, mis en mots — par pan de vie." />
+      <Async
       state={domains}
       empty={(d) =>
         d.length === 0 ? (
@@ -93,7 +95,8 @@ export function Compass({ ctx }: { ctx: Ctx }) {
           {current && <IntentionList key={current.id} domain={current} ctx={ctx} />}
         </Stack>
       )}
-    </Async>
+      </Async>
+    </>
   );
 }
 

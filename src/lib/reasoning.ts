@@ -6,44 +6,71 @@ import { useEffect, useRef, useState } from "react";
 //   event "ai-reasoning"      payload { delta: string }   — a thinking token
 //   event "ai-reasoning-end"  payload { }                 — the call finished
 // Assists happen one at a time in the UI, so a single global stream is enough.
+//
+// The hook exposes just enough to render a Claude/ChatGPT-style panel: the live
+// text, whether it's still thinking, and how long it thought (live, then final).
+
+export type ReasoningPhase = "idle" | "thinking" | "done";
 
 export interface ReasoningStream {
   text: string; // accumulated reasoning so far
-  active: boolean; // a call is currently thinking
+  phase: ReasoningPhase;
+  active: boolean; // convenience: phase === "thinking"
+  seconds: number; // elapsed thinking time — ticks live, then freezes
   reset: () => void;
 }
 
 export function useReasoningStream(): ReasoningStream {
   const [text, setText] = useState("");
-  const [active, setActive] = useState(false);
-  const unlisten = useRef<Array<() => void>>([]);
+  const [phase, setPhase] = useState<ReasoningPhase>("idle");
+  const [seconds, setSeconds] = useState(0);
+  const startRef = useRef<number | null>(null);
+  const offs = useRef<Array<() => void>>([]);
 
   useEffect(() => {
     let mounted = true;
     (async () => {
       const off1 = await listen<{ delta: string }>("ai-reasoning", (e) => {
         if (!mounted) return;
-        setActive(true);
+        setPhase((p) => {
+          if (p !== "thinking") startRef.current = performance.now();
+          return "thinking";
+        });
         setText((t) => t + (e.payload?.delta ?? ""));
       });
       const off2 = await listen("ai-reasoning-end", () => {
         if (!mounted) return;
-        setActive(false);
+        setPhase((p) => (p === "thinking" ? "done" : p));
       });
-      unlisten.current = [off1, off2];
+      offs.current = [off1, off2];
     })();
     return () => {
       mounted = false;
-      unlisten.current.forEach((f) => f());
+      offs.current.forEach((f) => f());
     };
   }, []);
 
+  // Tick the elapsed counter while thinking; freeze it when done.
+  useEffect(() => {
+    if (phase !== "thinking") return;
+    const id = window.setInterval(() => {
+      if (startRef.current != null) {
+        setSeconds((performance.now() - startRef.current) / 1000);
+      }
+    }, 100);
+    return () => window.clearInterval(id);
+  }, [phase]);
+
   return {
     text,
-    active,
+    phase,
+    active: phase === "thinking",
+    seconds,
     reset: () => {
       setText("");
-      setActive(false);
+      setPhase("idle");
+      setSeconds(0);
+      startRef.current = null;
     },
   };
 }

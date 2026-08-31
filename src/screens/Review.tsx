@@ -10,7 +10,7 @@ import {
 } from "../lib/ipc";
 import { FadeIn, MotionBox, staggerContainer, staggerItem } from "../ui/motion";
 import { IconCheck } from "../ui/icons";
-import { Card, SectionTitle } from "../ui/primitives";
+import { Card, PageHeader, SectionTitle } from "../ui/primitives";
 import { Async, EmptyState, humanError, useAsync } from "../ui/states";
 import { toaster } from "../ui/toaster";
 
@@ -38,6 +38,7 @@ export function Review({ ctx }: { ctx: Ctx }) {
 
   return (
     <Stack gap="6">
+      <PageHeader title="Le point" sub="Regarder en arrière, sans se juger." />
       <Card bg="accent.subtle" borderColor="transparent">
         <Stack gap="1.5">
           <Text fontWeight="semibold">Faire le point, c'est regarder — pas se juger.</Text>

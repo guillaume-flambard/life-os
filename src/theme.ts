@@ -57,21 +57,22 @@ const config = defineConfig({
     },
     semanticTokens: {
       colors: {
-        // Surfaces
+        // Surfaces — a warm paper canvas (Claude/Perplexity register), white
+        // cards, and hairline warm-gray dividers.
         canvas: {
-          value: { base: "{colors.sand.50}", _dark: "{colors.sand.900}" },
+          value: { base: "#fbfaf6", _dark: "{colors.sand.900}" },
         },
         surface: {
-          value: { base: "white", _dark: "{colors.sand.800}" },
+          value: { base: "#ffffff", _dark: "{colors.sand.800}" },
         },
         "surface.muted": {
-          value: { base: "{colors.sand.100}", _dark: "{colors.sand.700}" },
+          value: { base: "#f4f2ec", _dark: "{colors.sand.700}" },
         },
         border: {
-          value: { base: "{colors.sand.200}", _dark: "{colors.sand.700}" },
+          value: { base: "#e9e4da", _dark: "{colors.sand.700}" },
         },
         "border.subtle": {
-          value: { base: "{colors.sand.100}", _dark: "{colors.sand.800}" },
+          value: { base: "#f1ede4", _dark: "{colors.sand.800}" },
         },
         // Text
         fg: {
