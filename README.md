@@ -38,6 +38,25 @@ decision-as-delta model nor the compassionate review.
   own devices with an encrypted snapshot. Not a therapist; distress routes to local
   resources on-device.
 
+## Screens
+
+Calm, desktop-native, jargon-free — a cool-neutral paper ground with one deep-teal
+accent (the "needle" marks the active surface and the single primary action).
+
+| | |
+|---|---|
+| ![Home](docs/screenshots/accueil.png) | ![Guided decision (dark)](docs/screenshots/decision-dark.png) |
+| **Home** — bring a decision, or do your next step. | **Guided decision** — debiased, compass-aware, memory-aware. |
+| ![Compass](docs/screenshots/boussole.png) | ![Check-in](docs/screenshots/le-point.png) |
+| **Compass** — what matters, in your words. | **The check-in** — a kind, no-streak weekly replay. |
+
+The daily surface and the on-device distress screen:
+
+| | |
+|---|---|
+| ![Today](docs/screenshots/aujourdhui.png) | ![Safety net](docs/screenshots/filet-securite.png) |
+| **Today** — a thin daily loop; a quiet day is fine. | **Safety net** — distress routes to local help, on-device. |
+
 ## Stack
 
 Tauri v2 · TypeScript + Vite front · a Rust backend that owns an encrypted SQLite
