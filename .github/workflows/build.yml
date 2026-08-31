@@ -19,9 +19,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
+          cache: pnpm
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -39,10 +44,10 @@ jobs:
           key: ${{ matrix.os }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
 
       - name: Install front dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Build the app
-        run: npm run tauri build
+        run: pnpm tauri build
 
       - name: Upload installers
         uses: actions/upload-artifact@v4
