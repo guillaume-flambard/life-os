@@ -30,8 +30,10 @@ keyring = "3"
 # Passphrase-based E2E encryption for portable snapshots (scrypt + ChaCha20-Poly1305)
 age = "0.10"
 # Local AI (Ollama) over localhost HTTP
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+# Stream combinators for reading Ollama's NDJSON reasoning stream line by line
+futures-util = "0.3"
 thiserror = "1"
 
 [features]

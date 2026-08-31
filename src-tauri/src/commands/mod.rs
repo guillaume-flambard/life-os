@@ -11,7 +11,7 @@ use crate::domain::{
     StoryRow, StorySuggestion, Theme, WoopSuggestion,
 };
 use crate::{safety, sync};
-use tauri::State;
+use tauri::{AppHandle, State};
 
 #[tauri::command]
 pub fn db_health(db: State<'_, Db>) -> Health {
@@ -147,10 +147,13 @@ pub fn archive_intention(db: State<'_, Db>, id: String) -> Result<(), ApiError> 
 
 #[tauri::command]
 pub async fn reformulate_intention(
+    app: AppHandle,
     ai: State<'_, Ollama>,
     text: String,
 ) -> Result<Reformulation, ApiError> {
-    ai.reformulate_intention(&text).await.map_err(ApiError::ai)
+    ai.reformulate_intention(&text, Some(&app))
+        .await
+        .map_err(ApiError::ai)
 }
 
 // --- Guided decision: session steps ---------------------------------------
@@ -269,27 +272,36 @@ pub fn decision_finalize(db: State<'_, Db>, id: String) -> Result<DecisionFull, 
 
 #[tauri::command]
 pub async fn decision_suggest_options(
+    app: AppHandle,
     ai: State<'_, Ollama>,
     context: String,
 ) -> Result<OptionSuggestions, ApiError> {
-    ai.suggest_options(&context).await.map_err(ApiError::ai)
+    ai.suggest_options(&context, Some(&app))
+        .await
+        .map_err(ApiError::ai)
 }
 
 #[tauri::command]
 pub async fn decision_align_values(
+    app: AppHandle,
     ai: State<'_, Ollama>,
     option: String,
     intentions: String,
 ) -> Result<AlignmentNote, ApiError> {
-    ai.align_values(&option, &intentions).await.map_err(ApiError::ai)
+    ai.align_values(&option, &intentions, Some(&app))
+        .await
+        .map_err(ApiError::ai)
 }
 
 #[tauri::command]
 pub async fn decision_generate_story(
+    app: AppHandle,
     ai: State<'_, Ollama>,
     context: String,
 ) -> Result<StorySuggestion, ApiError> {
-    ai.generate_story(&context).await.map_err(ApiError::ai)
+    ai.generate_story(&context, Some(&app))
+        .await
+        .map_err(ApiError::ai)
 }
 
 // --- Review (the check-in) ------------------------------------------------
@@ -511,10 +523,13 @@ pub fn story_if_then(db: State<'_, Db>, story_id: String) -> Result<Vec<IfThenPl
 
 #[tauri::command]
 pub async fn generate_woop(
+    app: AppHandle,
     ai: State<'_, Ollama>,
     context: String,
 ) -> Result<WoopSuggestion, ApiError> {
-    ai.generate_woop(&context).await.map_err(ApiError::ai)
+    ai.generate_woop(&context, Some(&app))
+        .await
+        .map_err(ApiError::ai)
 }
 
 // --- Daily captures (Phase 2) ---------------------------------------------

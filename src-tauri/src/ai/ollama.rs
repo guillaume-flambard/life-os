@@ -5,7 +5,9 @@
 use crate::domain::{
     AlignmentNote, Delta, Health, OptionSuggestions, Reformulation, StorySuggestion, WoopSuggestion,
 };
+use futures_util::StreamExt;
 use serde_json::{json, Value};
+use tauri::{AppHandle, Emitter};
 
 const DELTA_SCHEMA: &str = include_str!("schemas/delta.json");
 const INTENTION_SCHEMA: &str = include_str!("schemas/intention.json");
@@ -39,13 +41,24 @@ impl Ollama {
     }
 
     /// Ask the model for a structured JSON object constrained by `schema`.
-    async fn chat_json(&self, system: &str, user: &str, schema: Value) -> Result<Value, String> {
+    ///
+    /// When `app` is `Some`, the call streams and the model's private reasoning
+    /// is surfaced live to the UI via `ai-reasoning` events (and `ai-reasoning-end`
+    /// when it stops) — this powers the "how I got there" panel. When `app` is
+    /// `None`, thinking is disabled and the call is a single non-streamed request
+    /// (lower latency for utility calls whose reasoning we never show).
+    async fn chat_json(
+        &self,
+        system: &str,
+        user: &str,
+        schema: Value,
+        app: Option<&AppHandle>,
+    ) -> Result<Value, String> {
+        let streaming = app.is_some();
         let body = json!({
             "model": self.model,
-            "stream": false,
-            // Disable chain-of-thought for structured utility calls: we only want
-            // the schema-constrained JSON, and thinking adds large latency (qwen3).
-            "think": false,
+            "stream": streaming,
+            "think": streaming,
             "format": schema,
             "messages": [
                 { "role": "system", "content": system },
@@ -60,13 +73,53 @@ impl Ollama {
             .await
             .map_err(|e| e.to_string())?;
         if !resp.status().is_success() {
+            if let Some(app) = app {
+                let _ = app.emit("ai-reasoning-end", json!({}));
+            }
             return Err(format!("Ollama a répondu {}", resp.status()));
         }
-        let v: Value = resp.json().await.map_err(|e| e.to_string())?;
-        let content = v["message"]["content"]
-            .as_str()
-            .ok_or("réponse sans contenu")?;
-        serde_json::from_str::<Value>(content).map_err(|e| e.to_string())
+
+        let Some(app) = app else {
+            // Non-streamed path: one JSON object, content is the schema-valid answer.
+            let v: Value = resp.json().await.map_err(|e| e.to_string())?;
+            let content = v["message"]["content"]
+                .as_str()
+                .ok_or("réponse sans contenu")?;
+            return serde_json::from_str::<Value>(content).map_err(|e| e.to_string());
+        };
+
+        // Streamed path: Ollama sends newline-delimited JSON. Each line may carry a
+        // slice of `message.thinking` (emitted live) and/or `message.content` (the
+        // answer, accumulated). The final answer is the concatenated content.
+        let mut content = String::new();
+        let mut buf: Vec<u8> = Vec::new();
+        let mut stream = resp.bytes_stream();
+        while let Some(chunk) = stream.next().await {
+            let bytes = chunk.map_err(|e| e.to_string())?;
+            buf.extend_from_slice(&bytes);
+            while let Some(pos) = buf.iter().position(|b| *b == b'\n') {
+                let line: Vec<u8> = buf.drain(..=pos).collect();
+                let line = &line[..line.len().saturating_sub(1)];
+                if line.is_empty() {
+                    continue;
+                }
+                if let Ok(v) = serde_json::from_slice::<Value>(line) {
+                    if let Some(t) = v["message"]["thinking"].as_str() {
+                        if !t.is_empty() {
+                            let _ = app.emit("ai-reasoning", json!({ "delta": t }));
+                        }
+                    }
+                    if let Some(c) = v["message"]["content"].as_str() {
+                        content.push_str(c);
+                    }
+                    if v["done"].as_bool().unwrap_or(false) {
+                        break;
+                    }
+                }
+            }
+        }
+        let _ = app.emit("ai-reasoning-end", json!({}));
+        serde_json::from_str::<Value>(content.trim()).map_err(|e| e.to_string())
     }
 
     /// Produce a schema-valid delta. Deserializing into `Delta` is the
@@ -78,6 +131,7 @@ impl Ollama {
                 "Tu produis un unique changement (op added/modified/removed) au format JSON.",
                 situation,
                 schema,
+                None,
             )
             .await?;
         serde_json::from_value::<Delta>(raw).map_err(|e| format!("sortie invalide: {e}"))
@@ -85,7 +139,11 @@ impl Ollama {
 
     /// Turn free-text intention into a testable "when [situation], I [action]"
     /// marker. Assistive only — the caller can always fall back to manual entry.
-    pub async fn reformulate_intention(&self, text: &str) -> Result<Reformulation, String> {
+    pub async fn reformulate_intention(
+        &self,
+        text: &str,
+        app: Option<&AppHandle>,
+    ) -> Result<Reformulation, String> {
         let schema: Value = serde_json::from_str(INTENTION_SCHEMA).map_err(|e| e.to_string())?;
         let raw = self
             .chat_json(
@@ -93,6 +151,7 @@ impl Ollama {
                  'situation' (quand…) et 'action' (je…), dans sa langue, sans jargon.",
                 text,
                 schema,
+                app,
             )
             .await?;
         serde_json::from_value::<Reformulation>(raw).map_err(|e| format!("sortie invalide: {e}"))
@@ -100,7 +159,11 @@ impl Ollama {
 
     /// Widen options. The prompt requires at least three, one of which is a
     /// "what if none of these?" option. Assistive — the user edits the result.
-    pub async fn suggest_options(&self, context: &str) -> Result<OptionSuggestions, String> {
+    pub async fn suggest_options(
+        &self,
+        context: &str,
+        app: Option<&AppHandle>,
+    ) -> Result<OptionSuggestions, String> {
         let schema: Value = serde_json::from_str(OPTIONS_SCHEMA).map_err(|e| e.to_string())?;
         let raw = self
             .chat_json(
@@ -109,6 +172,7 @@ impl Ollama {
                  Réponds en JSON { options: [...] } dans la langue de la personne.",
                 context,
                 schema,
+                app,
             )
             .await?;
         serde_json::from_value::<OptionSuggestions>(raw).map_err(|e| format!("sortie invalide: {e}"))
@@ -116,7 +180,12 @@ impl Ollama {
 
     /// Report alignment to the compass in plain words. The prompt requires
     /// naming both the fit AND the tension (anti-sycophancy, NFR17).
-    pub async fn align_values(&self, option: &str, intentions: &str) -> Result<AlignmentNote, String> {
+    pub async fn align_values(
+        &self,
+        option: &str,
+        intentions: &str,
+        app: Option<&AppHandle>,
+    ) -> Result<AlignmentNote, String> {
         let schema: Value = serde_json::from_str(ALIGN_SCHEMA).map_err(|e| e.to_string())?;
         let user = format!("Option envisagée : {option}\n\nCe qui compte pour la personne :\n{intentions}");
         let raw = self
@@ -126,13 +195,18 @@ impl Ollama {
                  incertitude. Ne dis jamais « tu devrais ». Réponds en JSON { note: \"...\" }.",
                 &user,
                 schema,
+                app,
             )
             .await?;
         serde_json::from_value::<AlignmentNote>(raw).map_err(|e| format!("sortie invalide: {e}"))
     }
 
     /// Propose one self-contained next step. Assistive — the user edits it.
-    pub async fn generate_story(&self, context: &str) -> Result<StorySuggestion, String> {
+    pub async fn generate_story(
+        &self,
+        context: &str,
+        app: Option<&AppHandle>,
+    ) -> Result<StorySuggestion, String> {
         let schema: Value = serde_json::from_str(STORY_SCHEMA).map_err(|e| e.to_string())?;
         let raw = self
             .chat_json(
@@ -141,6 +215,7 @@ impl Ollama {
                  Réponds en JSON { title, why, when_cue, done_when } dans la langue de la personne.",
                 context,
                 schema,
+                app,
             )
             .await?;
         serde_json::from_value::<StorySuggestion>(raw).map_err(|e| format!("sortie invalide: {e}"))
@@ -196,6 +271,7 @@ impl Ollama {
                  n'y a pas de tension, renvoie une question vide. JSON { question }.",
                 &user,
                 schema,
+                None,
             )
             .await?;
         let q = raw["question"].as_str().unwrap_or("").trim().to_string();
@@ -204,7 +280,11 @@ impl Ollama {
 
     /// Turn a next step into ONE implementation intention (WOOP). One concrete cue
     /// ("si …") and one tiny action ("alors …"); never a plan of many steps.
-    pub async fn generate_woop(&self, context: &str) -> Result<WoopSuggestion, String> {
+    pub async fn generate_woop(
+        &self,
+        context: &str,
+        app: Option<&AppHandle>,
+    ) -> Result<WoopSuggestion, String> {
         let schema: Value = serde_json::from_str(WOOP_SCHEMA).map_err(|e| e.to_string())?;
         let raw = self
             .chat_json(
@@ -214,6 +294,7 @@ impl Ollama {
                  { wish, outcome, obstacle, cue, action }, dans la langue de la personne.",
                 context,
                 schema,
+                app,
             )
             .await?;
         serde_json::from_value::<WoopSuggestion>(raw).map_err(|e| format!("sortie invalide: {e}"))
