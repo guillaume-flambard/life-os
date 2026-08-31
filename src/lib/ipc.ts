@@ -395,3 +395,20 @@ export const storyIfThen = (storyId: string) =>
   invoke<IfThenPlan[]>("story_if_then", { storyId });
 export const generateWoop = (context: string) =>
   invoke<WoopSuggestion>("generate_woop", { context });
+
+// --- Daily captures (Phase 2) ---------------------------------------------
+
+export interface Capture {
+  id: string;
+  content: string;
+  kind: string;
+  decision_id: string | null;
+  intention_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export const captureAdd = (content: string, kind: "note" | "reflection" = "note") =>
+  invoke<Capture>("capture_add", { content, kind, decisionId: null, intentionId: null });
+export const capturesRecent = (limit?: number) =>
+  invoke<Capture[]>("captures_recent", { limit: limit ?? null });

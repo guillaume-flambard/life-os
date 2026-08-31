@@ -13,6 +13,10 @@ use std::sync::Mutex;
 pub struct Db(pub Mutex<Connection>);
 
 const MIGRATION_0001: &str = include_str!("migrations/0001_init.sql");
+const MIGRATION_0002: &str = include_str!("migrations/0002_captures.sql");
+
+/// Ordered, forward-only migrations. Each runs once, in order.
+const MIGRATIONS: &[(i64, &str)] = &[(1, MIGRATION_0001), (2, MIGRATION_0002)];
 
 /// Register the sqlite-vec extension so every new connection exposes `vec0`.
 /// Safe to call once at startup, before opening any connection.
@@ -50,21 +54,22 @@ fn migrate(conn: &Connection) -> Result<(), String> {
     )
     .map_err(|e| e.to_string())?;
 
-    let applied: bool = conn
-        .query_row(
-            "SELECT EXISTS(SELECT 1 FROM _schema_migrations WHERE version = 1)",
-            [],
-            |r| r.get(0),
-        )
-        .map_err(|e| e.to_string())?;
-
-    if !applied {
-        conn.execute_batch(MIGRATION_0001).map_err(|e| e.to_string())?;
-        conn.execute(
-            "INSERT INTO _schema_migrations (version, applied_at) VALUES (1, ?1)",
-            [chrono::Utc::now().to_rfc3339()],
-        )
-        .map_err(|e| e.to_string())?;
+    for (version, sql) in MIGRATIONS {
+        let applied: bool = conn
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM _schema_migrations WHERE version = ?1)",
+                [version],
+                |r| r.get(0),
+            )
+            .map_err(|e| e.to_string())?;
+        if !applied {
+            conn.execute_batch(sql).map_err(|e| e.to_string())?;
+            conn.execute(
+                "INSERT INTO _schema_migrations (version, applied_at) VALUES (?1, ?2)",
+                rusqlite::params![version, chrono::Utc::now().to_rfc3339()],
+            )
+            .map_err(|e| e.to_string())?;
+        }
     }
     Ok(())
 }
@@ -380,6 +385,40 @@ mod tests {
         // No related history → no model call, no question (FR10).
         let ai = crate::ai::Ollama::from_env();
         assert!(ai.contradiction_question("changer de job", &[]).await.unwrap().is_none());
+    }
+
+    #[test]
+    fn daily_capture_migration_persist_export_and_erase() {
+        use repo::{admin, capture};
+        register_vec();
+        let conn = Connection::open_in_memory().unwrap();
+        migrate(&conn).unwrap();
+        migrate(&conn).unwrap(); // 0002 applies once; re-run is a no-op
+
+        // 4.1 — migration 0002 created the captures table.
+        let has: i64 = conn
+            .query_row(
+                "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='captures'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(has, 1);
+
+        // 4.2 — a capture persists, is listed, and logs an event.
+        capture::add_capture(&conn, "pensé à appeler mon frère ce soir", "note", None, None).unwrap();
+        assert_eq!(capture::list_recent(&conn, 30).unwrap().len(), 1);
+        let ev: i64 = conn
+            .query_row("SELECT count(*) FROM events WHERE type='capture.added'", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(ev, 1);
+        // Empty content is refused.
+        assert_eq!(capture::add_capture(&conn, "   ", "note", None, None).unwrap_err().code, "invalid");
+
+        // 4.3 — export includes captures; erase wipes them.
+        assert!(admin::export_markdown(&conn).unwrap().contains("appeler mon frère"));
+        admin::erase_all(&conn).unwrap();
+        assert!(capture::list_recent(&conn, 30).unwrap().is_empty());
     }
 
     #[test]

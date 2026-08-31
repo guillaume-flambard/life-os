@@ -125,6 +125,16 @@ pub fn export_markdown(conn: &Connection) -> Result<String, ApiError> {
         }
     }
 
+    // Captures
+    out.push_str("\n## Captures\n");
+    let mut cstmt = conn.prepare(
+        "SELECT created_at, content FROM captures WHERE deleted_at IS NULL ORDER BY created_at DESC",
+    )?;
+    for row in cstmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))? {
+        let (created, content) = row?;
+        out.push_str(&format!("- {} — {content}\n", &created[..created.len().min(10)]));
+    }
+
     Ok(out)
 }
 
@@ -135,6 +145,7 @@ pub fn export_markdown(conn: &Connection) -> Result<String, ApiError> {
 pub fn erase_all(conn: &Connection) -> Result<(), ApiError> {
     conn.execute_batch(
         "BEGIN;
+         DELETE FROM captures;
          DELETE FROM review_items;
          DELETE FROM reviews;
          DELETE FROM if_then_plans;

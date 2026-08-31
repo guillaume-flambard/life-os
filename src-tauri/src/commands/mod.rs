@@ -2,10 +2,10 @@
 //! lock the connection; AI commands are async and hit localhost Ollama only.
 
 use crate::ai::Ollama;
-use crate::db::repo::{admin, compass, decision, memory, profile, review, story};
+use crate::db::repo::{admin, capture, compass, decision, memory, profile, review, story};
 use crate::db::{repo, Db};
 use crate::domain::{
-    AlignmentNote, ApiError, Decision, DecisionDetail, DecisionFull, DecisionOption, Delta,
+    AlignmentNote, ApiError, Capture, Decision, DecisionDetail, DecisionFull, DecisionOption, Delta,
     DeltaInput, DeltaResolution, DeltaRow, Domain, Health, IfThenPlan, Intention, MemoryHit,
     OpenStory, OptionSuggestions, Reformulation, Review, ReviewItem, ScreenResult, StoryRow,
     StorySuggestion, Theme, WoopSuggestion,
@@ -515,6 +515,32 @@ pub async fn generate_woop(
     context: String,
 ) -> Result<WoopSuggestion, ApiError> {
     ai.generate_woop(&context).await.map_err(ApiError::ai)
+}
+
+// --- Daily captures (Phase 2) ---------------------------------------------
+
+#[tauri::command]
+pub fn capture_add(
+    db: State<'_, Db>,
+    content: String,
+    kind: Option<String>,
+    decision_id: Option<String>,
+    intention_id: Option<String>,
+) -> Result<Capture, ApiError> {
+    let conn = db.0.lock().unwrap();
+    capture::add_capture(
+        &conn,
+        &content,
+        kind.as_deref().unwrap_or("note"),
+        decision_id.as_deref(),
+        intention_id.as_deref(),
+    )
+}
+
+#[tauri::command]
+pub fn captures_recent(db: State<'_, Db>, limit: Option<i64>) -> Result<Vec<Capture>, ApiError> {
+    let conn = db.0.lock().unwrap();
+    capture::list_recent(&conn, limit.unwrap_or(30).clamp(1, 200))
 }
 
 /// Erase everything. Guarded by an explicit confirmation token from the UI.

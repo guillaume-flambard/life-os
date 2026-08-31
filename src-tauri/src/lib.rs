@@ -83,6 +83,8 @@ pub fn run() {
             commands::story_add_if_then,
             commands::story_if_then,
             commands::generate_woop,
+            commands::capture_add,
+            commands::captures_recent,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Life OS");

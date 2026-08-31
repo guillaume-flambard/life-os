@@ -3,6 +3,7 @@ import { renderCompass } from "./compass";
 import { renderDecision } from "./decision";
 import { renderCarnet } from "./carnet";
 import { renderCheckin } from "./checkin";
+import { renderDaily } from "./daily";
 
 // The five MVP surfaces as shells. Human-mode copy only; expert mode adds a
 // discreet engine-term subtitle. No engine jargon in human mode.
@@ -24,6 +25,12 @@ export const ROUTES: Route[] = [
     human: "Accueil",
     expert: "conversation",
     render: (el) => renderDecision(el),
+  },
+  {
+    id: "today",
+    human: "Aujourd'hui",
+    expert: "daily capture",
+    render: (el) => renderDaily(el),
   },
   {
     id: "compass",

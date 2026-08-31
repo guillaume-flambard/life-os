@@ -287,6 +287,18 @@ pub struct OpenStory {
     pub done_when: Option<String>,
 }
 
+/// A daily capture — a lightweight local jot.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Capture {
+    pub id: String,
+    pub content: String,
+    pub kind: String, // note | reflection
+    pub decision_id: Option<String>,
+    pub intention_id: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
 /// AI WOOP/if-then suggestion (validated before use).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WoopSuggestion {
