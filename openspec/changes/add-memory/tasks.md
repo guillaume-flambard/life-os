@@ -25,4 +25,4 @@
 - [x] 5.2 Vector KNN returns the nearest chunk for a query embedding   — cargo test (hand-made vectors)
 - [x] 5.3 Fusion returns an item found by either search; recency breaks ties   — cargo test
 - [x] 5.4 Contradiction returns nothing when there is no related history   — cargo test
-- [ ] 5.5 Live: recall + a gentle question appear in the decision flow (needs `embeddinggemma`)   — manual (GUI)
+- [x] 5.5 Live: recall + a gentle question appear in the decision flow (needs `embeddinggemma`)   — verified on-screen: a decision worded with no keyword overlap recalled the related intention (semantic) and raised a gentle question
