@@ -1,23 +1,27 @@
 import { Box, HStack, Stack, Text } from "@chakra-ui/react";
 import { useEffect, useRef } from "react";
 import {
+  applyDecision,
   capturesRecent,
   captureAdd,
   createDomain,
   createIntention,
   decisionAddOption,
   decisionAddStory,
+  decisionDetail,
   decisionFinalize,
   decisionSetConfidence,
   listDecisions,
   listDomains,
   listIntentions,
   listOpenStories,
+  listProposedDecisions,
   openDecision,
   reformulateIntention,
   safetyScreen,
   setOnboarded,
   setStoryStatus,
+  type DecisionFull,
   type OpenStory,
   type Reformulation,
 } from "../lib/ipc";
@@ -47,22 +51,25 @@ interface World {
   notes: number;
   domains: number;
   openStories: OpenStory[];
+  proposed: DecisionFull[];
 }
 
 async function snapshot(): Promise<World> {
-  const empty: World = { decisions: 0, notes: 0, domains: 0, openStories: [] };
+  const empty: World = { decisions: 0, notes: 0, domains: 0, openStories: [], proposed: [] };
   try {
-    const [decisions, notes, domains, openStories] = await Promise.all([
+    const [decisions, notes, domains, openStories, proposed] = await Promise.all([
       listDecisions().catch(() => []),
       capturesRecent(1).catch(() => []),
       listDomains().catch(() => []),
       listOpenStories().catch(() => []),
+      listProposedDecisions().catch(() => []),
     ]);
     return {
       decisions: decisions.length,
       notes: notes.length,
       domains: domains.length,
       openStories,
+      proposed,
     };
   } catch {
     return empty;
@@ -173,8 +180,8 @@ async function script(flow: Flow, onboarded: boolean, onReveal: () => void) {
     else if (choice === "compass") await branchCompass(flow, reveal);
     else if (choice === "decision") await branchDecision(flow, reveal);
     else if (choice === "step") await pickStep(flow, world.openStories);
+    else if (choice === "review") await branchReview(flow, world);
     else if (choice === "carnet") return navigate("carnet");
-    else if (choice === "review") return navigate("review");
 
     Object.assign(world, await snapshot());
 
@@ -208,10 +215,61 @@ function menuFor(w: World, first: boolean): { label: string; value: string; hint
   if (first && w.openStories.length > 0) {
     opts.push({ label: "Reprendre un petit pas", value: "step", hint: `${w.openStories.length} en attente` });
   }
+  if (w.proposed.length > 0) {
+    opts.push({ label: "Faire le point", value: "review", hint: `${w.proposed.length} à intégrer` });
+  }
   if (w.decisions > 0) {
     opts.push({ label: "Voir mon carnet", value: "carnet", hint: "tes décisions" });
   }
   return opts;
+}
+
+// Faire le point, dans le fil : intégrer une décision prête à ta boussole, ou
+// simplement écrire ce que tu retiens.
+async function branchReview(flow: Flow, world: World) {
+  const proposed = world.proposed;
+  if (proposed.length === 0) {
+    const note = await flow.input({
+      prompt: "Faire le point, c'est regarder — pas se juger. Qu'est-ce que tu retiens, là ?",
+      placeholder: "Ce qui a bougé, ce que tu apprends…",
+      multiline: true,
+      cta: "Garder",
+    });
+    await captureAdd(note, "reflection").catch(() => {});
+    await flow.say("Gardé. C'est déjà un pas de recul.");
+    return;
+  }
+
+  const d = proposed[0];
+  await flow.say(
+    <Stack gap="1">
+      <Text>Une décision est prête à rejoindre ta boussole :</Text>
+      <Text fontWeight="semibold">{d.title}</Text>
+    </Stack>,
+  );
+  if (d.values_alignment_note) await flow.say(d.values_alignment_note);
+
+  const ans = await flow.ask([
+    { label: "Intégrer à ma boussole", value: "apply", tone: "accent" },
+    { label: "Plus tard", value: "later" },
+  ]);
+  if (ans !== "apply") {
+    await flow.say("Ok, elle t'attendra. Sans pression.");
+    return;
+  }
+  try {
+    const detail = await decisionDetail(d.id);
+    const resolutions = detail.deltas.map((dl) => ({
+      delta_id: dl.id,
+      domain_id: dl.domain_id,
+      target_intention_id: dl.target_intention_id,
+    }));
+    await applyDecision(d.id, resolutions);
+    await flow.say("Intégré. Ta boussole a un peu bougé. 🧭");
+  } catch (e) {
+    await flow.say("Je n'ai pas réussi à l'intégrer cette fois. On réessaiera.");
+    void e;
+  }
 }
 
 // --- Follow-through: tick a pending small step ------------------------------

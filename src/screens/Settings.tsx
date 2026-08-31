@@ -17,7 +17,7 @@ import { toaster } from "../ui/toaster";
 export function Settings({ ctx }: { ctx: Ctx }) {
   const db = useAsync(() => dbHealth(), []);
   const ai = useAsync(() => aiHealth(), []);
-  const { mode: color, set } = useColorMode();
+  const { setting, set } = useColorMode();
 
   return (
     <Stack gap="6">
@@ -48,7 +48,7 @@ export function Settings({ ctx }: { ctx: Ctx }) {
                 <Button
                   key={t}
                   size="xs"
-                  variant={(t === "system" ? color === undefined : color === t) ? "solid" : "outline"}
+                  variant={setting === t ? "solid" : "outline"}
                   colorPalette="teal"
                   onClick={() => set(t)}
                 >

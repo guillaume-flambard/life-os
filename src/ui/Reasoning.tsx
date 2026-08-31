@@ -8,13 +8,23 @@ import { MotionBox } from "./motion";
 // on a hairline rail — the current step pulses, past ones settle and dim, a
 // timer runs — then it folds to a quiet "Réfléchi pendant N s" you can re-open.
 
+// Turn a raw streamed thinking blob into short, legible steps. Models emit
+// reasoning as lines, numbered/bulleted lists, or run-on sentences — normalize
+// all of it: break on hard newlines and sentence ends, strip list markers, and
+// fold tiny fragments back into the previous step so the rail stays readable.
 function splitSteps(text: string): string[] {
-  const t = text.trim();
+  const t = text.replace(/\r/g, "").trim();
   if (!t) return [];
-  const byLine = t.split(/\n+/).map((s) => s.trim()).filter(Boolean);
-  if (byLine.length > 1) return byLine;
-  const bySentence = t.match(/[^.!?…]+[.!?…]*/g)?.map((s) => s.trim()).filter(Boolean);
-  return bySentence && bySentence.length ? bySentence : [t];
+  const parts = t
+    .split(/\n+|(?<=[.!?…])\s+(?=[A-ZÀ-Ÿ0-9"«])/u)
+    .map((s) => s.trim().replace(/^\s*(?:\d+[.)]|[-•*])\s+/, "").trim())
+    .filter(Boolean);
+  const merged: string[] = [];
+  for (const p of parts) {
+    if (p.length < 12 && merged.length) merged[merged.length - 1] += " " + p;
+    else merged.push(p);
+  }
+  return merged.length ? merged : [t];
 }
 
 function ShimmerLabel({ children }: { children: string }) {
