@@ -41,6 +41,7 @@ const STEPS = [
   "Prends du recul",
   "Ce que ça touche",
   "Pourquoi, au fond",
+  "Ce que ça change",
   "Ton prochain petit pas",
   "Tu tranches",
 ] as const;
