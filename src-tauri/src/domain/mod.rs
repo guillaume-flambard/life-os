@@ -261,6 +261,42 @@ pub struct Theme {
     pub count: i64,
 }
 
+/// An implementation intention / WOOP attached to a next step.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IfThenPlan {
+    pub id: String,
+    pub story_id: Option<String>,
+    pub decision_id: Option<String>,
+    pub wish: Option<String>,
+    pub outcome: Option<String>,
+    pub obstacle: Option<String>,
+    pub cue: String,
+    pub action: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+/// An open next step plus the title of the decision it belongs to (for the list).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenStory {
+    pub id: String,
+    pub decision_id: Option<String>,
+    pub decision_title: Option<String>,
+    pub title: String,
+    pub when_cue: Option<String>,
+    pub done_when: Option<String>,
+}
+
+/// AI WOOP/if-then suggestion (validated before use).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WoopSuggestion {
+    pub wish: Option<String>,
+    pub outcome: Option<String>,
+    pub obstacle: Option<String>,
+    pub cue: String,
+    pub action: String,
+}
+
 /// Result of local, on-device screening of user text. Never leaves the device.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScreenResult {

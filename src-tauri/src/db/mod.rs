@@ -383,6 +383,48 @@ mod tests {
     }
 
     #[test]
+    fn next_step_if_then_and_follow_through() {
+        use repo::{decision, story};
+        register_vec();
+        let conn = Connection::open_in_memory().unwrap();
+        migrate(&conn).unwrap();
+
+        // A finalized decision yields a story (its "petit pas").
+        let (dec, _delta) = proposed_decision_with_added_delta(&conn, "reprendre le sport ?", "bouger plus");
+        let st = decision::list_stories(&conn, &dec).unwrap();
+        assert_eq!(st.len(), 1);
+        let story_id = st[0].id.clone();
+
+        // It appears among the open steps on home.
+        assert_eq!(story::list_open_stories(&conn).unwrap().len(), 1);
+
+        // 3.1 — pre-wire an if-then; it persists and logs an event.
+        story::add_if_then(&conn, &story_id, Some(&dec), None, None, None, "il est 7h", "je mets mes baskets").unwrap();
+        let plans = story::list_if_then(&conn, &story_id).unwrap();
+        assert_eq!(plans.len(), 1);
+        assert_eq!(plans[0].cue, "il est 7h");
+        assert_eq!(plans[0].action, "je mets mes baskets");
+        let ev: i64 = conn
+            .query_row("SELECT count(*) FROM events WHERE type='if_then.added'", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(ev, 1);
+
+        // Empty cue/action is refused.
+        assert_eq!(
+            story::add_if_then(&conn, &story_id, None, None, None, None, "", "x").unwrap_err().code,
+            "invalid"
+        );
+
+        // 3.2 — marking it done removes it from the open list, record kept.
+        story::set_story_status(&conn, &story_id, "done").unwrap();
+        assert!(story::list_open_stories(&conn).unwrap().is_empty());
+        let still_there: i64 = conn
+            .query_row("SELECT count(*) FROM stories WHERE id = ?1", [&story_id], |r| r.get(0))
+            .unwrap();
+        assert_eq!(still_there, 1);
+    }
+
+    #[test]
     fn profile_extracts_recurring_terms_and_is_empty_without_usage() {
         use repo::{compass, profile};
         register_vec();

@@ -21,6 +21,10 @@ import {
   memoryRecall,
   contradictionCheck,
   profileThemes,
+  listOpenStories,
+  setStoryStatus,
+  storyAddIfThen,
+  generateWoop,
   isApiError,
   type DecisionDetail,
   type MemoryHit,
@@ -95,6 +99,45 @@ function esc(s: string): string {
   return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]!));
 }
 
+// Follow-through (Epic 4): open next steps across decisions, markable fait / laisser.
+async function loadOpenSteps(el: HTMLElement) {
+  let steps;
+  try {
+    steps = await listOpenStories();
+  } catch {
+    return;
+  }
+  const slot = el.querySelector<HTMLElement>("#steps");
+  if (!slot || !steps || steps.length === 0) return;
+  slot.innerHTML = `
+    <div class="open-steps">
+      <div class="muted">Tes prochains pas :</div>
+      <ul class="intentions">
+        ${steps
+          .map(
+            (s) => `<li class="step" data-step="${s.id}">
+              <div class="marker">${esc(s.title)}${s.when_cue ? ` <span class="muted">— ${esc(s.when_cue)}</span>` : ""}</div>
+              <div class="row">
+                <button data-done="${s.id}">Fait</button>
+                <button data-drop="${s.id}">Laisser</button>
+              </div>
+            </li>`,
+          )
+          .join("")}
+      </ul>
+    </div>`;
+  const mark = (id: string, status: "done" | "dropped") =>
+    setStoryStatus(id, status)
+      .then(() => loadOpenSteps(el))
+      .catch(() => {});
+  slot.querySelectorAll<HTMLButtonElement>("[data-done]").forEach((b) =>
+    b.addEventListener("click", () => mark(b.dataset.done!, "done")),
+  );
+  slot.querySelectorAll<HTMLButtonElement>("[data-drop]").forEach((b) =>
+    b.addEventListener("click", () => mark(b.dataset.drop!, "dropped")),
+  );
+}
+
 // Profile by extraction (FR12): a soft mirror of recurring themes, from usage only.
 // Hidden until there is enough material; never a form.
 async function loadProfilePanel(el: HTMLElement) {
@@ -150,8 +193,10 @@ function render(el: HTMLElement) {
           <button type="submit">On y va</button>
         </form>
         <div id="dmsg" class="msg" hidden></div>
+        <div id="steps"></div>
         <div id="profile"></div>
       </section>`;
+    void loadOpenSteps(el);
     void loadProfilePanel(el);
     el.querySelector<HTMLFormElement>("#open")!.addEventListener("submit", (e) => {
       e.preventDefault();
@@ -377,7 +422,50 @@ function renderStep(el: HTMLElement) {
             <button type="button" id="genstory">Propose-m'en un</button>
             <button type="submit" class="primary">Garder</button>
           </div>
-        </form>`;
+        </form>
+        ${
+          detail.stories.length
+            ? `<div class="ifthen">
+                <div class="muted">Ancre-le à un moment concret (ça aide vraiment) :</div>
+                <div class="marker-fields">
+                  <input id="cue" placeholder="si… (un déclencheur)" />
+                  <input id="then" placeholder="alors… (ce que tu fais)" />
+                </div>
+                <div class="row">
+                  <button type="button" id="genwoop">Propose-moi un si-alors</button>
+                  <button type="button" id="anchor">Ancrer</button>
+                </div>
+              </div>`
+            : ""
+        }`;
+      const lastStory = detail.stories[detail.stories.length - 1];
+      b.querySelector<HTMLButtonElement>("#genwoop")?.addEventListener("click", (e) => {
+        const btn = e.target as HTMLButtonElement;
+        btn.disabled = true;
+        btn.textContent = "…";
+        guard(el, async () => {
+          const ctx = `Pas : ${lastStory.title}. Décision : ${detail.decision.title}.`;
+          const w = await generateWoop(ctx);
+          (b.querySelector<HTMLInputElement>("#cue")!).value = w.cue;
+          (b.querySelector<HTMLInputElement>("#then")!).value = w.action;
+          btn.disabled = false;
+          btn.textContent = "Propose-moi un si-alors";
+        });
+      });
+      b.querySelector<HTMLButtonElement>("#anchor")?.addEventListener("click", () => {
+        const cue = (b.querySelector<HTMLInputElement>("#cue")!).value.trim();
+        const action = (b.querySelector<HTMLInputElement>("#then")!).value.trim();
+        if (!cue || !action) {
+          notify(el, "Il faut un « si » et un « alors ».", "info");
+          return;
+        }
+        guard(el, async () => {
+          await storyAddIfThen(lastStory.id, detail.decision.id, cue, action);
+          notify(el, "C'est ancré. Ce déclencheur t'aidera à passer à l'action.", "info");
+          (b.querySelector<HTMLInputElement>("#cue")!).value = "";
+          (b.querySelector<HTMLInputElement>("#then")!).value = "";
+        });
+      });
       b.querySelector<HTMLFormElement>("#addstory")!.addEventListener("submit", (e) => {
         e.preventDefault();
         const f = e.target as HTMLFormElement;

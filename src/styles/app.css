@@ -174,3 +174,12 @@ select { border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; ba
 /* Extracted profile themes */
 .profile .themes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .profile .theme { padding: 4px 10px; border-radius: 999px; border: 1px solid var(--accent); color: var(--accent); font-size: 13px; }
+
+/* Follow-through: open next steps + if-then anchoring */
+.open-steps { margin-top: 24px; }
+.open-steps .step { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.open-steps .step .row { margin-top: 0; }
+.open-steps button { border: 1px solid var(--line); background: none; color: var(--fg); border-radius: 7px; padding: 5px 10px; cursor: pointer; font-size: 13px; }
+.open-steps button:hover { background: var(--line); }
+.ifthen { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line); display: grid; gap: 8px; }
+.ifthen button { border: 1px solid var(--line); background: none; color: var(--fg); border-radius: 7px; padding: 6px 12px; cursor: pointer; }

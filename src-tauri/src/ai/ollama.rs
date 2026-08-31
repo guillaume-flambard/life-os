@@ -3,7 +3,7 @@
 //! before use — an invalid output is never returned as success.
 
 use crate::domain::{
-    AlignmentNote, Delta, Health, OptionSuggestions, Reformulation, StorySuggestion,
+    AlignmentNote, Delta, Health, OptionSuggestions, Reformulation, StorySuggestion, WoopSuggestion,
 };
 use serde_json::{json, Value};
 
@@ -13,6 +13,7 @@ const OPTIONS_SCHEMA: &str = include_str!("schemas/options.json");
 const ALIGN_SCHEMA: &str = include_str!("schemas/align.json");
 const STORY_SCHEMA: &str = include_str!("schemas/story.json");
 const QUESTION_SCHEMA: &str = include_str!("schemas/question.json");
+const WOOP_SCHEMA: &str = include_str!("schemas/woop.json");
 
 pub struct Ollama {
     base: String,
@@ -199,5 +200,22 @@ impl Ollama {
             .await?;
         let q = raw["question"].as_str().unwrap_or("").trim().to_string();
         Ok(if q.is_empty() { None } else { Some(q) })
+    }
+
+    /// Turn a next step into ONE implementation intention (WOOP). One concrete cue
+    /// ("si …") and one tiny action ("alors …"); never a plan of many steps.
+    pub async fn generate_woop(&self, context: &str) -> Result<WoopSuggestion, String> {
+        let schema: Value = serde_json::from_str(WOOP_SCHEMA).map_err(|e| e.to_string())?;
+        let raw = self
+            .chat_json(
+                "Transforme ce pas en UNE intention d'implémentation. Donne un déclencheur \
+                 concret 'cue' (si …) et UNE action minuscule 'action' (alors …), plus si utile \
+                 wish/outcome/obstacle. Un seul si-alors, jamais une liste. JSON \
+                 { wish, outcome, obstacle, cue, action }, dans la langue de la personne.",
+                context,
+                schema,
+            )
+            .await?;
+        serde_json::from_value::<WoopSuggestion>(raw).map_err(|e| format!("sortie invalide: {e}"))
     }
 }

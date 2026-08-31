@@ -349,3 +349,49 @@ export async function isOnboarded(): Promise<boolean> {
 export async function setOnboarded(): Promise<void> {
   await setSetting(ONBOARDED_KEY, "1");
 }
+
+// --- Next steps (Epic 4) --------------------------------------------------
+
+export interface IfThenPlan {
+  id: string;
+  story_id: string | null;
+  decision_id: string | null;
+  wish: string | null;
+  outcome: string | null;
+  obstacle: string | null;
+  cue: string;
+  action: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OpenStory {
+  id: string;
+  decision_id: string | null;
+  decision_title: string | null;
+  title: string;
+  when_cue: string | null;
+  done_when: string | null;
+}
+
+export interface WoopSuggestion {
+  wish: string | null;
+  outcome: string | null;
+  obstacle: string | null;
+  cue: string;
+  action: string;
+}
+
+export const listOpenStories = () => invoke<OpenStory[]>("list_open_stories");
+export const setStoryStatus = (id: string, status: "open" | "done" | "dropped") =>
+  invoke<void>("set_story_status", { id, status });
+export const storyAddIfThen = (
+  storyId: string,
+  decisionId: string | null,
+  cue: string,
+  action: string,
+) => invoke<IfThenPlan>("story_add_if_then", { storyId, decisionId, wish: null, outcome: null, obstacle: null, cue, action });
+export const storyIfThen = (storyId: string) =>
+  invoke<IfThenPlan[]>("story_if_then", { storyId });
+export const generateWoop = (context: string) =>
+  invoke<WoopSuggestion>("generate_woop", { context });

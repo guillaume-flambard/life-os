@@ -78,6 +78,11 @@ pub fn run() {
             commands::export_data,
             commands::erase_all,
             commands::profile_themes,
+            commands::list_open_stories,
+            commands::set_story_status,
+            commands::story_add_if_then,
+            commands::story_if_then,
+            commands::generate_woop,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Life OS");

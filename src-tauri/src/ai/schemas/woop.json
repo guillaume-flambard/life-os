@@ -1,0 +1,11 @@
+{
+  "type": "object",
+  "properties": {
+    "wish": { "type": "string" },
+    "outcome": { "type": "string" },
+    "obstacle": { "type": "string" },
+    "cue": { "type": "string" },
+    "action": { "type": "string" }
+  },
+  "required": ["cue", "action"]
+}

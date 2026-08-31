@@ -7,6 +7,7 @@ pub mod decision;
 pub mod memory;
 pub mod profile;
 pub mod review;
+pub mod story;
 
 use crate::domain::Decision;
 use crate::events;

@@ -2,12 +2,13 @@
 //! lock the connection; AI commands are async and hit localhost Ollama only.
 
 use crate::ai::Ollama;
-use crate::db::repo::{admin, compass, decision, memory, profile, review};
+use crate::db::repo::{admin, compass, decision, memory, profile, review, story};
 use crate::db::{repo, Db};
 use crate::domain::{
     AlignmentNote, ApiError, Decision, DecisionDetail, DecisionFull, DecisionOption, Delta,
-    DeltaInput, DeltaResolution, DeltaRow, Domain, Health, Intention, MemoryHit, OptionSuggestions,
-    Reformulation, Review, ReviewItem, ScreenResult, StoryRow, StorySuggestion, Theme,
+    DeltaInput, DeltaResolution, DeltaRow, Domain, Health, IfThenPlan, Intention, MemoryHit,
+    OpenStory, OptionSuggestions, Reformulation, Review, ReviewItem, ScreenResult, StoryRow,
+    StorySuggestion, Theme, WoopSuggestion,
 };
 use crate::safety;
 use tauri::State;
@@ -462,6 +463,58 @@ pub fn export_data(db: State<'_, Db>) -> Result<String, ApiError> {
 pub fn profile_themes(db: State<'_, Db>, limit: Option<usize>) -> Result<Vec<Theme>, ApiError> {
     let conn = db.0.lock().unwrap();
     profile::extract_themes(&conn, limit.unwrap_or(6))
+}
+
+// --- Next steps (Epic 4) --------------------------------------------------
+
+#[tauri::command]
+pub fn list_open_stories(db: State<'_, Db>) -> Result<Vec<OpenStory>, ApiError> {
+    let conn = db.0.lock().unwrap();
+    story::list_open_stories(&conn)
+}
+
+#[tauri::command]
+pub fn set_story_status(db: State<'_, Db>, id: String, status: String) -> Result<(), ApiError> {
+    let conn = db.0.lock().unwrap();
+    story::set_story_status(&conn, &id, &status)
+}
+
+#[tauri::command]
+pub fn story_add_if_then(
+    db: State<'_, Db>,
+    story_id: String,
+    decision_id: Option<String>,
+    wish: Option<String>,
+    outcome: Option<String>,
+    obstacle: Option<String>,
+    cue: String,
+    action: String,
+) -> Result<IfThenPlan, ApiError> {
+    let conn = db.0.lock().unwrap();
+    story::add_if_then(
+        &conn,
+        &story_id,
+        decision_id.as_deref(),
+        wish.as_deref(),
+        outcome.as_deref(),
+        obstacle.as_deref(),
+        &cue,
+        &action,
+    )
+}
+
+#[tauri::command]
+pub fn story_if_then(db: State<'_, Db>, story_id: String) -> Result<Vec<IfThenPlan>, ApiError> {
+    let conn = db.0.lock().unwrap();
+    story::list_if_then(&conn, &story_id)
+}
+
+#[tauri::command]
+pub async fn generate_woop(
+    ai: State<'_, Ollama>,
+    context: String,
+) -> Result<WoopSuggestion, ApiError> {
+    ai.generate_woop(&context).await.map_err(ApiError::ai)
 }
 
 /// Erase everything. Guarded by an explicit confirmation token from the UI.
