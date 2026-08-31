@@ -199,3 +199,36 @@ pub struct DecisionDetail {
     pub deltas: Vec<DeltaRow>,
     pub stories: Vec<StoryRow>,
 }
+
+// --- Review (the check-in / QA) -------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Review {
+    pub id: String,
+    pub period_start: Option<String>,
+    pub period_end: Option<String>,
+    pub note: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReviewItem {
+    pub id: String,
+    pub review_id: String,
+    pub intention_id: Option<String>,
+    pub decision_id: Option<String>,
+    pub outcome: Option<String>, // better | as_expected | worse | too_early
+    pub learning: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+/// How the user resolves one delta onto the compass at integration time.
+/// `added` needs a `domain_id`; `modified`/`removed` need a `target_intention_id`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeltaResolution {
+    pub delta_id: String,
+    pub domain_id: Option<String>,
+    pub target_intention_id: Option<String>,
+}

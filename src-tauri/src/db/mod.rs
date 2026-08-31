@@ -215,4 +215,118 @@ mod tests {
             .unwrap();
         assert_eq!(proposed, 1);
     }
+
+    // Builds a minimal proposed decision carrying one `added` delta, returns
+    // (decision_id, delta_id).
+    #[cfg(test)]
+    fn proposed_decision_with_added_delta(
+        conn: &Connection,
+        title: &str,
+        statement: &str,
+    ) -> (String, String) {
+        use crate::domain::DeltaInput;
+        use repo::decision;
+        let d = decision::open_decision(conn, title).unwrap();
+        decision::add_option(conn, &d.id, "a", false).unwrap();
+        let ch = decision::add_option(conn, &d.id, "b", false).unwrap();
+        decision::add_option(conn, &d.id, "et si aucune ?", true).unwrap();
+        decision::choose_option(conn, &d.id, &ch.id).unwrap();
+        decision::set_option_premortem(conn, &ch.id, "raison").unwrap();
+        decision::set_distance(conn, &d.id, "10/10/10").unwrap();
+        decision::set_why(conn, &d.id, "pourquoi").unwrap();
+        decision::add_story(conn, &d.id, "petit pas", None, None, None).unwrap();
+        let delta = decision::add_delta(
+            conn,
+            &d.id,
+            &DeltaInput {
+                op: "added".into(),
+                target_intention_id: None,
+                domain_id: None,
+                payload_statement: Some(statement.into()),
+                payload_situation: None,
+                payload_action: None,
+                payload_priority: Some("should".into()),
+            },
+        )
+        .unwrap();
+        decision::finalize(conn, &d.id).unwrap();
+        (d.id, delta.id)
+    }
+
+    #[test]
+    fn review_records_items_and_integration_merges_delta() {
+        use crate::domain::DeltaResolution;
+        use repo::{compass, decision, review};
+        register_vec();
+        let conn = Connection::open_in_memory().unwrap();
+        migrate(&conn).unwrap();
+
+        let dom = compass::create_domain(&conn, "Mes proches").unwrap().id;
+        let intent = compass::create_intention(&conn, &dom, "être présent", None, None, "must").unwrap();
+
+        // 5.1 / 5.2 — replay + record an outcome and a learning, compassionately.
+        let rev = review::open_review(&conn, Some("2026-08-24"), Some("2026-08-31")).unwrap();
+        review::add_item(&conn, &rev.id, Some(&intent.id), None, Some("too_early"), Some("pas encore l'occasion")).unwrap();
+        assert_eq!(review::list_items(&conn, &rev.id).unwrap().len(), 1);
+        // Unknown outcome is rejected.
+        assert_eq!(
+            review::add_item(&conn, &rev.id, Some(&intent.id), None, Some("failed"), None).unwrap_err().code,
+            "invalid"
+        );
+        let recorded: i64 = conn
+            .query_row("SELECT count(*) FROM events WHERE type='review.item_recorded'", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(recorded, 1);
+
+        // 5.3 / FR8 — integrate a proposed decision: its added delta becomes a new
+        // intention in the chosen area, the delta is applied, the decision applied.
+        let (dec_id, delta_id) = proposed_decision_with_added_delta(&conn, "protéger mes soirées ?", "protéger mes soirées");
+        assert_eq!(decision::list_proposed_decisions(&conn).unwrap().len(), 1);
+
+        let before = compass::list_intentions(&conn, &dom).unwrap().len();
+        let applied = decision::apply_decision(
+            &conn,
+            &dec_id,
+            &[DeltaResolution { delta_id: delta_id.clone(), domain_id: Some(dom.clone()), target_intention_id: None }],
+        )
+        .unwrap();
+        assert_eq!(applied.status, "applied");
+        assert_eq!(compass::list_intentions(&conn, &dom).unwrap().len(), before + 1);
+        let delta_applied: Option<String> = conn
+            .query_row("SELECT applied_at FROM deltas WHERE id=?1", [&delta_id], |r| r.get(0))
+            .unwrap();
+        assert!(delta_applied.is_some());
+        assert!(decision::list_proposed_decisions(&conn).unwrap().is_empty());
+    }
+
+    #[test]
+    fn integration_respects_the_cap_and_merges_nothing_on_failure() {
+        use crate::domain::DeltaResolution;
+        use repo::{compass, decision};
+        register_vec();
+        let conn = Connection::open_in_memory().unwrap();
+        migrate(&conn).unwrap();
+
+        // Fill an area to its intention cap.
+        let dom = compass::create_domain(&conn, "Plein").unwrap().id;
+        for i in 0..compass::INTENTION_ACTIVE_CAP {
+            compass::create_intention(&conn, &dom, &format!("i{i}"), None, None, "should").unwrap();
+        }
+
+        let (dec_id, delta_id) = proposed_decision_with_added_delta(&conn, "un de plus ?", "encore un");
+        let err = decision::apply_decision(
+            &conn,
+            &dec_id,
+            &[DeltaResolution { delta_id, domain_id: Some(dom.clone()), target_intention_id: None }],
+        )
+        .unwrap_err();
+        assert_eq!(err.code, "cap_reached");
+
+        // Rolled back: no extra intention, decision still proposed (nothing merged).
+        assert_eq!(
+            compass::list_intentions(&conn, &dom).unwrap().len() as i64,
+            compass::INTENTION_ACTIVE_CAP
+        );
+        assert_eq!(decision::get_decision(&conn, &dec_id).unwrap().status, "proposed");
+    }
 }

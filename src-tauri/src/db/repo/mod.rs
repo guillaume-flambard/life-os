@@ -3,6 +3,7 @@
 
 pub mod compass;
 pub mod decision;
+pub mod review;
 
 use crate::domain::Decision;
 use crate::events;

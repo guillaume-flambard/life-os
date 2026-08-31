@@ -2,12 +2,12 @@
 //! lock the connection; AI commands are async and hit localhost Ollama only.
 
 use crate::ai::Ollama;
-use crate::db::repo::{compass, decision};
+use crate::db::repo::{compass, decision, review};
 use crate::db::{repo, Db};
 use crate::domain::{
     AlignmentNote, ApiError, Decision, DecisionDetail, DecisionFull, DecisionOption, Delta,
-    DeltaInput, DeltaRow, Domain, Health, Intention, OptionSuggestions, Reformulation, StoryRow,
-    StorySuggestion,
+    DeltaInput, DeltaResolution, DeltaRow, Domain, Health, Intention, OptionSuggestions,
+    Reformulation, Review, ReviewItem, StoryRow, StorySuggestion,
 };
 use tauri::State;
 
@@ -288,4 +288,64 @@ pub async fn decision_generate_story(
     context: String,
 ) -> Result<StorySuggestion, ApiError> {
     ai.generate_story(&context).await.map_err(ApiError::ai)
+}
+
+// --- Review (the check-in) ------------------------------------------------
+
+#[tauri::command]
+pub fn review_open(
+    db: State<'_, Db>,
+    period_start: Option<String>,
+    period_end: Option<String>,
+) -> Result<Review, ApiError> {
+    let conn = db.0.lock().unwrap();
+    review::open_review(&conn, period_start.as_deref(), period_end.as_deref())
+}
+
+#[tauri::command]
+pub fn review_add_item(
+    db: State<'_, Db>,
+    review_id: String,
+    intention_id: Option<String>,
+    decision_id: Option<String>,
+    outcome: Option<String>,
+    learning: Option<String>,
+) -> Result<ReviewItem, ApiError> {
+    let conn = db.0.lock().unwrap();
+    review::add_item(
+        &conn,
+        &review_id,
+        intention_id.as_deref(),
+        decision_id.as_deref(),
+        outcome.as_deref(),
+        learning.as_deref(),
+    )
+}
+
+#[tauri::command]
+pub fn review_items(db: State<'_, Db>, review_id: String) -> Result<Vec<ReviewItem>, ApiError> {
+    let conn = db.0.lock().unwrap();
+    review::list_items(&conn, &review_id)
+}
+
+#[tauri::command]
+pub fn review_list(db: State<'_, Db>) -> Result<Vec<Review>, ApiError> {
+    let conn = db.0.lock().unwrap();
+    review::list_reviews(&conn)
+}
+
+#[tauri::command]
+pub fn list_proposed_decisions(db: State<'_, Db>) -> Result<Vec<DecisionFull>, ApiError> {
+    let conn = db.0.lock().unwrap();
+    decision::list_proposed_decisions(&conn)
+}
+
+#[tauri::command]
+pub fn apply_decision(
+    db: State<'_, Db>,
+    decision_id: String,
+    resolutions: Vec<DeltaResolution>,
+) -> Result<DecisionFull, ApiError> {
+    let conn = db.0.lock().unwrap();
+    decision::apply_decision(&conn, &decision_id, &resolutions)
 }

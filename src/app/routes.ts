@@ -2,6 +2,7 @@ import { getMode, setMode, type UiMode } from "../lib/ipc";
 import { renderCompass } from "./compass";
 import { renderDecision } from "./decision";
 import { renderCarnet } from "./carnet";
+import { renderCheckin } from "./checkin";
 
 // The five MVP surfaces as shells. Human-mode copy only; expert mode adds a
 // discreet engine-term subtitle. No engine jargon in human mode.
@@ -40,13 +41,7 @@ export const ROUTES: Route[] = [
     id: "checkin",
     human: "Le point",
     expert: "review / QA",
-    render: (el) => {
-      el.innerHTML = h(
-        "Le point",
-        `<p class="lead">Un moment calme pour regarder ce que tu as vécu.</p>
-         <p class="muted">À venir.</p>`,
-      );
-    },
+    render: (el) => renderCheckin(el),
   },
   {
     id: "settings",

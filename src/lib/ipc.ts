@@ -242,3 +242,58 @@ export const decisionAlignValues = (option: string, intentions: string) =>
   invoke<AlignmentNote>("decision_align_values", { option, intentions });
 export const decisionGenerateStory = (context: string) =>
   invoke<StorySuggestion>("decision_generate_story", { context });
+
+// --- Review (the check-in) ------------------------------------------------
+
+export type Outcome = "better" | "as_expected" | "worse" | "too_early";
+
+export const OUTCOME_LABELS: Record<Outcome, string> = {
+  better: "mieux que je pensais",
+  as_expected: "comme je voulais",
+  worse: "moins que j'aurais aimé",
+  too_early: "trop tôt pour le dire",
+};
+
+export interface Review {
+  id: string;
+  period_start: string | null;
+  period_end: string | null;
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ReviewItem {
+  id: string;
+  review_id: string;
+  intention_id: string | null;
+  decision_id: string | null;
+  outcome: Outcome | null;
+  learning: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DeltaResolution {
+  delta_id: string;
+  domain_id?: string | null;
+  target_intention_id?: string | null;
+}
+
+export const reviewOpen = (periodStart: string | null, periodEnd: string | null) =>
+  invoke<Review>("review_open", { periodStart, periodEnd });
+export const reviewAddItem = (
+  reviewId: string,
+  intentionId: string | null,
+  decisionId: string | null,
+  outcome: Outcome | null,
+  learning: string | null,
+) => invoke<ReviewItem>("review_add_item", { reviewId, intentionId, decisionId, outcome, learning });
+export const reviewItems = (reviewId: string) =>
+  invoke<ReviewItem[]>("review_items", { reviewId });
+export const reviewList = () => invoke<Review[]>("review_list");
+
+export const listProposedDecisions = () =>
+  invoke<DecisionFull[]>("list_proposed_decisions");
+export const applyDecision = (decisionId: string, resolutions: DeltaResolution[]) =>
+  invoke<DecisionFull>("apply_decision", { decisionId, resolutions });

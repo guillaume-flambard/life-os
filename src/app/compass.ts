@@ -14,6 +14,7 @@ import {
   type Intention,
   type Priority,
 } from "../lib/ipc";
+import { cleanSituation, cleanAction } from "../lib/marker";
 
 // The compass surface: life areas ("pans de vie") and intentions ("ce qui
 // compte"), written as "quand [situation], je [action]". Human façade only.
@@ -43,7 +44,8 @@ function esc(s: string): string {
 }
 
 function marker(i: Intention): string {
-  if (i.situation && i.action) return `Quand ${esc(i.situation)}, je ${esc(i.action)}.`;
+  if (i.situation && i.action)
+    return `Quand ${esc(cleanSituation(i.situation))}, je ${esc(cleanAction(i.action))}.`;
   return esc(i.statement);
 }
 

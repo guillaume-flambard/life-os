@@ -42,6 +42,17 @@ npm run tauri dev
 The encrypted DB is created on first run under the app data dir; its key is
 stored in the OS keychain.
 
+> Dev tip: unsigned dev binaries get a fresh code signature on each rebuild, so
+> the keychain denies the previous key and the app would refuse to open the
+> existing DB. For local dev, set a fixed key to keep the same DB across
+> rebuilds (any 64 hex chars):
+>
+> ```bash
+> export LIFEOS_DEV_KEY=$(python3 -c "import secrets;print(secrets.token_hex(32))")
+> ```
+>
+> Production builds have a stable signature and use the keychain unchanged.
+
 ## Layout
 
 - `openspec/` — the artifact backbone (specs + change proposals). Start with

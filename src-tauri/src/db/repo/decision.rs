@@ -2,12 +2,15 @@
 //! step across `decisions`, `decision_options`, `deltas`, `stories`. Every
 //! mutation records an event; finalizing enforces a valid outcome (NFR4).
 
+use crate::db::repo::compass;
 use crate::domain::{
-    ApiError, DecisionDetail, DecisionFull, DecisionOption, DeltaInput, DeltaRow, StoryRow,
+    ApiError, DecisionDetail, DecisionFull, DecisionOption, DeltaInput, DeltaResolution, DeltaRow,
+    StoryRow,
 };
 use crate::events;
 use chrono::Utc;
 use rusqlite::{params, Connection};
+use std::collections::HashMap;
 use uuid::Uuid;
 
 const PRIORITIES: [&str; 3] = ["must", "should", "may"];
@@ -372,4 +375,105 @@ pub fn finalize(conn: &Connection, id: &str) -> Result<DecisionFull, ApiError> {
     )?;
     events::record(conn, "decision.proposed", "decision", id, None)?;
     get_decision(conn, id)
+}
+
+// --- Integration (FR8): merge a proposed decision's delta into the compass ---
+
+pub fn list_proposed_decisions(conn: &Connection) -> Result<Vec<DecisionFull>, ApiError> {
+    let mut stmt = conn.prepare(
+        "SELECT id FROM decisions WHERE status='proposed' AND deleted_at IS NULL ORDER BY created_at DESC",
+    )?;
+    let ids = stmt
+        .query_map([], |r| r.get::<_, String>(0))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    ids.iter().map(|id| get_decision(conn, id)).collect()
+}
+
+/// Apply every unapplied delta of a proposed decision onto the compass, then mark
+/// the decision applied. Transactional: any failure rolls back, so nothing is
+/// merged partially. `resolutions` maps each delta to its target (an area for
+/// `added`, an existing intention for `modified`/`removed`).
+pub fn apply_decision(
+    conn: &Connection,
+    decision_id: &str,
+    resolutions: &[DeltaResolution],
+) -> Result<DecisionFull, ApiError> {
+    let d = get_decision(conn, decision_id)?;
+    if d.status != "proposed" {
+        return Err(ApiError::invalid("cette décision n'est pas prête à être intégrée".to_string()));
+    }
+    let by_delta: HashMap<&str, &DeltaResolution> =
+        resolutions.iter().map(|r| (r.delta_id.as_str(), r)).collect();
+
+    let tx = conn.unchecked_transaction().map_err(ApiError::db)?;
+    let now = Utc::now().to_rfc3339();
+
+    for delta in list_deltas(&tx, decision_id)? {
+        if delta.applied_at.is_some() {
+            continue;
+        }
+        let res = by_delta.get(delta.id.as_str());
+        let domain_id = res.and_then(|r| r.domain_id.clone()).or(delta.domain_id.clone());
+        let target = res
+            .and_then(|r| r.target_intention_id.clone())
+            .or(delta.target_intention_id.clone());
+        let priority = delta.payload_priority.as_deref().unwrap_or("should");
+
+        match delta.op.as_str() {
+            "added" => {
+                let dom = domain_id.ok_or_else(|| {
+                    ApiError::incomplete("choisis un pan de vie pour ce que tu ajoutes".to_string())
+                })?;
+                let statement = delta.payload_statement.clone().unwrap_or_default();
+                // Reuses the compass cap: adding past it is refused here too.
+                compass::create_intention(
+                    &tx,
+                    &dom,
+                    &statement,
+                    delta.payload_situation.as_deref(),
+                    delta.payload_action.as_deref(),
+                    priority,
+                )?;
+            }
+            "modified" => {
+                let tgt = target.ok_or_else(|| {
+                    ApiError::incomplete("choisis l'intention à changer".to_string())
+                })?;
+                let statement = delta.payload_statement.clone().unwrap_or_default();
+                compass::update_intention(
+                    &tx,
+                    &tgt,
+                    &statement,
+                    delta.payload_situation.as_deref(),
+                    delta.payload_action.as_deref(),
+                )?;
+                if delta.payload_priority.is_some() {
+                    compass::set_intention_priority(&tx, &tgt, priority)?;
+                }
+            }
+            "removed" => {
+                let tgt = target.ok_or_else(|| {
+                    ApiError::incomplete("choisis l'intention à arrêter".to_string())
+                })?;
+                compass::archive_intention(&tx, &tgt)?;
+            }
+            other => return Err(ApiError::invalid(format!("changement inconnu: {other}"))),
+        }
+
+        tx.execute(
+            "UPDATE deltas SET applied_at=?2, updated_at=?2 WHERE id=?1",
+            params![delta.id, now],
+        )
+        .map_err(ApiError::db)?;
+    }
+
+    tx.execute(
+        "UPDATE decisions SET status='applied', updated_at=?2 WHERE id=?1",
+        params![decision_id, now],
+    )
+    .map_err(ApiError::db)?;
+    events::record(&tx, "decision.applied", "decision", decision_id, None)?;
+
+    tx.commit().map_err(ApiError::db)?;
+    get_decision(conn, decision_id)
 }

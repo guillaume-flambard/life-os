@@ -64,6 +64,12 @@ pub fn run() {
             commands::decision_suggest_options,
             commands::decision_align_values,
             commands::decision_generate_story,
+            commands::review_open,
+            commands::review_add_item,
+            commands::review_items,
+            commands::review_list,
+            commands::list_proposed_decisions,
+            commands::apply_decision,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Life OS");
