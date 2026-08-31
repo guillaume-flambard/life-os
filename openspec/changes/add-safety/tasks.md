@@ -22,7 +22,7 @@
 - [x] 4.2 A neutral phrase is not flagged (no over-firing on ordinary sadness words)   — cargo test
 - [x] 4.3 A high-stakes phrase is flagged as such (not as distress)   — cargo test
 - [x] 4.4 Export produces Markdown containing the stored data; erase wipes all rows   — cargo test
-- [ ] 4.5 Live: distress screen replaces the flow; disclaimer visible; export/erase work   — manual (GUI)
+- [x] 4.5 Live: distress screen replaces the flow; disclaimer visible; export/erase work   — verified on-screen: a crisis phrase yielded to the resources screen (no decision created), disclaimer footer present, export wrote a real .md to Downloads, two-step erase completed
 
 ## Status
 Compiles; front typechecks. 12 headless tests pass, incl. distress detection,
