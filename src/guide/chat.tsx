@@ -1,71 +1,21 @@
-import { Box, Button, HStack, Input, Stack, Text, Textarea, Wrap } from "@chakra-ui/react";
 import { useEffect, useRef, useState } from "react";
-import { MotionBox } from "../ui/motion";
 import type { Choice, Turn } from "./flow";
+import "./chat.css";
 
-// The visible conversation — the elevated, épuré register: the assistant speaks
-// as plain text on the canvas (no bubble), and only the user's own words get a
-// quiet tinted pill. One interactive turn is live at a time.
+// Bespoke, hand-written conversation — no component-library defaults. Plain
+// elements styled by chat.css for the clean ChatGPT/Claude register.
 
-function TypingDots() {
+function Typing() {
   return (
-    <HStack gap="1.5" py="1.5">
-      {[0, 1, 2].map((i) => (
-        <MotionBox
-          key={i}
-          w="1.5"
-          h="1.5"
-          rounded="full"
-          bg="fg.subtle"
-          animate={{ opacity: [0.25, 1, 0.25], y: [0, -2, 0] }}
-          transition={{ duration: 1, repeat: Infinity, delay: i * 0.16, ease: "easeInOut" }}
-        />
-      ))}
-    </HStack>
+    <div className="cv-typing">
+      <i />
+      <i />
+      <i />
+    </div>
   );
 }
 
-function Say({ children }: { children: React.ReactNode }) {
-  return (
-    <MotionBox
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
-      alignSelf="start"
-      maxW="92%"
-    >
-      <Text fontSize="17px" lineHeight="1.62" color="fg">
-        {children}
-      </Text>
-    </MotionBox>
-  );
-}
-
-function Echo({ text }: { text: string }) {
-  return (
-    <MotionBox
-      initial={{ opacity: 0, y: 8, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
-      alignSelf="end"
-      maxW="82%"
-    >
-      <Box
-        bg="surface.muted"
-        color="fg"
-        rounded="l3"
-        px="4"
-        py="2.5"
-        fontSize="15.5px"
-        lineHeight="1.5"
-      >
-        {text}
-      </Box>
-    </MotionBox>
-  );
-}
-
-function Choices({
+function Chips({
   options,
   answered,
   onPick,
@@ -76,55 +26,24 @@ function Choices({
 }) {
   if (answered) return null;
   return (
-    <MotionBox
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: 0.12 }}
-      alignSelf="stretch"
-    >
-      <Wrap gap="2.5" justify="end">
-        {options.map((o) => {
-          const accent = o.tone === "accent";
-          return (
-            <Button
-              key={o.value}
-              variant={accent ? "solid" : "outline"}
-              colorPalette={accent ? "teal" : "gray"}
-              size="lg"
-              rounded="full"
-              h="auto"
-              py="2.5"
-              px="5"
-              whiteSpace="normal"
-              textAlign="left"
-              fontWeight="medium"
-              color={accent ? "accent.fg" : "fg"}
-              bg={accent ? "accent" : "transparent"}
-              borderColor={accent ? "accent" : "border"}
-              onClick={() => onPick(o.value, o.label)}
-              _hover={{ transform: "translateY(-1px)", bg: accent ? "accent.emphasis" : "surface.muted" }}
-              transition="transform 0.15s, background 0.15s, border-color 0.15s"
-            >
-              <Stack gap="0" align="start">
-                <Text>{o.label}</Text>
-                {o.hint && (
-                  <Text fontSize="xs" fontWeight="normal" color={accent ? "whiteAlpha.800" : "fg.subtle"}>
-                    {o.hint}
-                  </Text>
-                )}
-              </Stack>
-            </Button>
-          );
-        })}
-      </Wrap>
-    </MotionBox>
+    <div className="cv-chips">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          className={"cv-chip" + (o.tone === "accent" ? " primary" : "")}
+          onClick={() => onPick(o.value, o.label)}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
   );
 }
 
 function Composer({
   placeholder,
   multiline,
-  cta,
   answered,
   onSubmit,
 }: {
@@ -135,7 +54,7 @@ function Composer({
   onSubmit: (t: string) => void;
 }) {
   const [value, setValue] = useState("");
-  const ref = useRef<HTMLInputElement & HTMLTextAreaElement>(null);
+  const ref = useRef<HTMLTextAreaElement & HTMLInputElement>(null);
   useEffect(() => {
     if (!answered) ref.current?.focus();
   }, [answered]);
@@ -146,56 +65,40 @@ function Composer({
   };
 
   return (
-    <MotionBox
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: 0.1 }}
-      alignSelf="stretch"
-    >
-      <HStack
-        align="end"
-        bg="surface"
-        borderWidth="1px"
-        borderColor="border"
-        rounded="l3"
-        p="1.5"
-        _focusWithin={{ borderColor: "accent" }}
-        transition="border-color 0.15s"
-      >
-        {multiline ? (
-          <Textarea
-            ref={ref as any}
-            autoresize
-            maxH="40"
-            variant="subtle"
-            bg="transparent"
-            border="none"
-            placeholder={placeholder}
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) send();
-            }}
-            _focus={{ boxShadow: "none" }}
-          />
-        ) : (
-          <Input
-            ref={ref as any}
-            variant="subtle"
-            bg="transparent"
-            border="none"
-            placeholder={placeholder}
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && send()}
-            _focus={{ boxShadow: "none" }}
-          />
-        )}
-        <Button colorPalette="teal" rounded="l2" onClick={send} disabled={!value.trim()} px="4">
-          {cta ?? "Envoyer"}
-        </Button>
-      </HStack>
-    </MotionBox>
+    <div className="cv-composer">
+      {multiline ? (
+        <textarea
+          ref={ref as any}
+          rows={1}
+          placeholder={placeholder}
+          value={value}
+          onChange={(e) => {
+            setValue(e.target.value);
+            e.target.style.height = "auto";
+            e.target.style.height = Math.min(e.target.scrollHeight, 160) + "px";
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              send();
+            }
+          }}
+        />
+      ) : (
+        <input
+          ref={ref as any}
+          placeholder={placeholder}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && send()}
+        />
+      )}
+      <button type="button" className="cv-send" onClick={send} disabled={!value.trim()} aria-label="Envoyer">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 19V5M5 12l7-7 7 7" />
+        </svg>
+      </button>
+    </div>
   );
 }
 
@@ -206,21 +109,25 @@ export function Conversation({ turns }: { turns: Turn[] }) {
   }, [turns]);
 
   return (
-    <Stack gap="4" pb="8">
+    <div className="cv">
       {turns.map((t) => {
         switch (t.kind) {
           case "assistant":
-            return <Say key={t.id}>{t.content}</Say>;
-          case "user":
-            return <Echo key={t.id} text={t.text} />;
-          case "typing":
             return (
-              <MotionBox key={t.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} alignSelf="start">
-                <TypingDots />
-              </MotionBox>
+              <div className="cv-a" key={t.id}>
+                {t.content}
+              </div>
             );
+          case "user":
+            return (
+              <div className="cv-u" key={t.id}>
+                {t.text}
+              </div>
+            );
+          case "typing":
+            return <Typing key={t.id} />;
           case "choices":
-            return <Choices key={t.id} options={t.options} answered={t.answered} onPick={t.onPick} />;
+            return <Chips key={t.id} options={t.options} answered={t.answered} onPick={t.onPick} />;
           case "input":
             return (
               <Composer
@@ -234,22 +141,12 @@ export function Conversation({ turns }: { turns: Turn[] }) {
             );
           case "widget":
             if (t.answered) return null;
-            return (
-              <MotionBox
-                key={t.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
-                alignSelf="stretch"
-              >
-                {t.render(t.done)}
-              </MotionBox>
-            );
+            return <div key={t.id}>{t.render(t.done)}</div>;
           default:
             return null;
         }
       })}
       <div ref={endRef} />
-    </Stack>
+    </div>
   );
 }

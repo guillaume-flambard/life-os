@@ -12,15 +12,15 @@ function NeedleMark() {
       w="7"
       h="7"
       rounded="l2"
-      bg="teal.700"
+      bg="fg"
+      color="canvas"
       display="grid"
       placeItems="center"
       flexShrink="0"
     >
-      <svg width="16" height="16" viewBox="0 0 24 24">
-        <circle cx="12" cy="12" r="9" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="1.5" />
-        <path d="M12 4 14 12 12 20 10 12z" fill="#eafaf4" />
-        <path d="M12 20 10 12 12 12z" fill="#5fc9a8" />
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <circle cx="12" cy="12" r="8.5" strokeWidth="1.3" opacity="0.35" />
+        <path d="M12 4.5 13.6 12 12 19.5 10.4 12z" fill="currentColor" stroke="none" />
       </svg>
     </Box>
   );

@@ -67,6 +67,10 @@ const config = defineConfig({
         "surface.muted": {
           value: { base: "{colors.gray.100}", _dark: "{colors.gray.800}" },
         },
+        // The user's own message bubble — a touch more present than surface.muted.
+        bubble: {
+          value: { base: "{colors.gray.200}", _dark: "{colors.gray.700}" },
+        },
         border: {
           value: { base: "{colors.gray.200}", _dark: "{colors.gray.700}" },
         },
