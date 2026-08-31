@@ -23,6 +23,18 @@
 
 * { box-sizing: border-box; }
 
+button.primary {
+  background: var(--accent);
+  color: #fff;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+  font: inherit;
+}
+button.primary:hover { filter: brightness(1.05); }
+button.primary:disabled { opacity: 0.5; cursor: default; }
+
 body {
   margin: 0;
   background: var(--bg);
@@ -150,3 +162,15 @@ select { border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; ba
 .resource { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
 .resource .rname { font-weight: 600; }
 .resource .rcontact { font-size: 20px; color: var(--accent); margin: 2px 0; }
+
+/* First-run welcome */
+.onboarding { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; }
+.welcome { max-width: 480px; text-align: center; }
+.welcome .brand-lg { font-weight: 600; letter-spacing: 0.04em; color: var(--muted); margin-bottom: 24px; }
+.welcome h1 { font-size: 32px; margin: 0 0 12px; }
+.welcome .lead { font-size: 18px; line-height: 1.5; }
+.welcome .primary { margin-top: 24px; padding: 12px 20px; font-size: 16px; }
+
+/* Extracted profile themes */
+.profile .themes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.profile .theme { padding: 4px 10px; border-radius: 999px; border: 1px solid var(--accent); color: var(--accent); font-size: 13px; }

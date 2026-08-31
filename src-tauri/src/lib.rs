@@ -77,6 +77,7 @@ pub fn run() {
             commands::safety_screen,
             commands::export_data,
             commands::erase_all,
+            commands::profile_themes,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Life OS");

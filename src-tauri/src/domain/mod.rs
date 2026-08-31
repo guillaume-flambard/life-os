@@ -254,6 +254,13 @@ pub struct Resource {
     pub note: String,
 }
 
+/// A recurring theme extracted from the user's own text (FR12: profile from usage).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Theme {
+    pub term: String,
+    pub count: i64,
+}
+
 /// Result of local, on-device screening of user text. Never leaves the device.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScreenResult {

@@ -383,6 +383,26 @@ mod tests {
     }
 
     #[test]
+    fn profile_extracts_recurring_terms_and_is_empty_without_usage() {
+        use repo::{compass, profile};
+        register_vec();
+        let conn = Connection::open_in_memory().unwrap();
+        migrate(&conn).unwrap();
+
+        // 4.4 — no usage yet → no themes.
+        assert!(profile::extract_themes(&conn, 6).unwrap().is_empty());
+
+        // 4.3 — a term the user repeats surfaces; stopwords do not.
+        let dom = compass::create_domain(&conn, "Mes proches").unwrap().id;
+        compass::create_intention(&conn, &dom, "être présent pour mon frère", None, None, "must").unwrap();
+        compass::create_intention(&conn, &dom, "appeler mon frère plus souvent", None, None, "should").unwrap();
+
+        let themes = profile::extract_themes(&conn, 6).unwrap();
+        assert!(themes.iter().any(|t| t.term == "frère" && t.count >= 2), "recurring term surfaces");
+        assert!(!themes.iter().any(|t| t.term == "pour" || t.term == "mon"), "stopwords excluded");
+    }
+
+    #[test]
     fn export_contains_data_and_erase_wipes_everything() {
         use repo::{admin, compass};
         register_vec();

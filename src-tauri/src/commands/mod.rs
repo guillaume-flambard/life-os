@@ -2,12 +2,12 @@
 //! lock the connection; AI commands are async and hit localhost Ollama only.
 
 use crate::ai::Ollama;
-use crate::db::repo::{admin, compass, decision, memory, review};
+use crate::db::repo::{admin, compass, decision, memory, profile, review};
 use crate::db::{repo, Db};
 use crate::domain::{
     AlignmentNote, ApiError, Decision, DecisionDetail, DecisionFull, DecisionOption, Delta,
     DeltaInput, DeltaResolution, DeltaRow, Domain, Health, Intention, MemoryHit, OptionSuggestions,
-    Reformulation, Review, ReviewItem, ScreenResult, StoryRow, StorySuggestion,
+    Reformulation, Review, ReviewItem, ScreenResult, StoryRow, StorySuggestion, Theme,
 };
 use crate::safety;
 use tauri::State;
@@ -455,6 +455,13 @@ pub fn export_data(db: State<'_, Db>) -> Result<String, ApiError> {
     let path = dir.join(name);
     std::fs::write(&path, markdown).map_err(|e| ApiError::db(e))?;
     Ok(path.to_string_lossy().into_owned())
+}
+
+/// Recurring themes extracted from the user's own text (FR12). Never a form.
+#[tauri::command]
+pub fn profile_themes(db: State<'_, Db>, limit: Option<usize>) -> Result<Vec<Theme>, ApiError> {
+    let conn = db.0.lock().unwrap();
+    profile::extract_themes(&conn, limit.unwrap_or(6))
 }
 
 /// Erase everything. Guarded by an explicit confirmation token from the UI.

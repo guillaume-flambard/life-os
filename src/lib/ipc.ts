@@ -330,3 +330,22 @@ export interface ScreenResult {
 export const safetyScreen = (text: string) => invoke<ScreenResult>("safety_screen", { text });
 export const exportData = () => invoke<string>("export_data");
 export const eraseAll = (confirm: string) => invoke<void>("erase_all", { confirm });
+
+// --- Onboarding & profile -------------------------------------------------
+
+export interface Theme {
+  term: string;
+  count: number;
+}
+
+export const profileThemes = (limit?: number) =>
+  invoke<Theme[]>("profile_themes", { limit: limit ?? null });
+
+const ONBOARDED_KEY = "onboarded";
+
+export async function isOnboarded(): Promise<boolean> {
+  return (await getSetting(ONBOARDED_KEY)) === "1";
+}
+export async function setOnboarded(): Promise<void> {
+  await setSetting(ONBOARDED_KEY, "1");
+}

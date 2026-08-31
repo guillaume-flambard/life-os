@@ -5,6 +5,7 @@ pub mod admin;
 pub mod compass;
 pub mod decision;
 pub mod memory;
+pub mod profile;
 pub mod review;
 
 use crate::domain::Decision;

@@ -20,6 +20,7 @@ import {
   listIntentions,
   memoryRecall,
   contradictionCheck,
+  profileThemes,
   isApiError,
   type DecisionDetail,
   type MemoryHit,
@@ -94,6 +95,24 @@ function esc(s: string): string {
   return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]!));
 }
 
+// Profile by extraction (FR12): a soft mirror of recurring themes, from usage only.
+// Hidden until there is enough material; never a form.
+async function loadProfilePanel(el: HTMLElement) {
+  let themes;
+  try {
+    themes = await profileThemes(6);
+  } catch {
+    return;
+  }
+  const slot = el.querySelector<HTMLElement>("#profile");
+  if (!slot || !themes || themes.length < 3) return;
+  slot.innerHTML = `
+    <div class="recall profile">
+      <div class="muted">Ce qui revient chez toi, au fil de ce que tu écris :</div>
+      <div class="themes">${themes.map((t) => `<span class="theme">${esc(t.term)}</span>`).join("")}</div>
+    </div>`;
+}
+
 async function refresh(el: HTMLElement) {
   if (session) session.detail = await decisionDetail(session.detail.decision.id);
   render(el);
@@ -131,7 +150,9 @@ function render(el: HTMLElement) {
           <button type="submit">On y va</button>
         </form>
         <div id="dmsg" class="msg" hidden></div>
+        <div id="profile"></div>
       </section>`;
+    void loadProfilePanel(el);
     el.querySelector<HTMLFormElement>("#open")!.addEventListener("submit", (e) => {
       e.preventDefault();
       const value = el.querySelector<HTMLInputElement>('#open input[name="title"]')!.value.trim();

@@ -1,5 +1,7 @@
 import "./styles/app.css";
 import { ROUTES, getMode } from "./app/routes";
+import { isOnboarded } from "./lib/ipc";
+import { renderOnboarding } from "./app/onboarding";
 import type { UiMode } from "./lib/ipc";
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
@@ -45,7 +47,7 @@ async function renderAll() {
   await renderView();
 }
 
-async function boot() {
+async function start() {
   mode = await getMode();
   await renderAll();
   window.addEventListener("hashchange", renderView);
@@ -53,6 +55,21 @@ async function boot() {
     mode = (e as CustomEvent<UiMode>).detail;
     await renderAll();
   });
+}
+
+async function boot() {
+  // First run: value-first welcome before the app, once per device.
+  let onboarded = true;
+  try {
+    onboarded = await isOnboarded();
+  } catch {
+    onboarded = true; // never trap the user on the welcome if the check fails
+  }
+  if (!onboarded) {
+    renderOnboarding(app, () => void start());
+    return;
+  }
+  await start();
 }
 
 boot();
