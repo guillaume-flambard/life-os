@@ -20,6 +20,10 @@ const config = defineConfig({
           value:
             'ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace',
         },
+        // Native serif — New York on Apple, Georgia elsewhere. Offline, no bundle.
+        serif: {
+          value: 'ui-serif, "New York", Georgia, "Times New Roman", serif',
+        },
       },
       colors: {
         // Deep-teal brand ramp (the needle).

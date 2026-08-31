@@ -6,7 +6,14 @@ import type { ReactNode } from "react";
 export function PageHeader({ title, sub }: { title: ReactNode; sub?: ReactNode }) {
   return (
     <Stack gap="1" mb="6">
-      <Heading as="h1" fontSize="2xl" fontWeight="semibold" letterSpacing="-0.02em" lineHeight="1.15">
+      <Heading
+        as="h1"
+        fontFamily="serif"
+        fontSize="28px"
+        fontWeight="500"
+        letterSpacing="-0.01em"
+        lineHeight="1.15"
+      >
         {title}
       </Heading>
       {sub && (

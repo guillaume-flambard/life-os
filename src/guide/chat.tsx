@@ -3,49 +3,40 @@ import { useEffect, useRef, useState } from "react";
 import { MotionBox } from "../ui/motion";
 import type { Choice, Turn } from "./flow";
 
-// The visible conversation: a single calm column. Assistant turns sit left,
-// the user's own choices echo right. One interactive turn is live at a time.
+// The visible conversation — the elevated, épuré register: the assistant speaks
+// as plain text on the canvas (no bubble), and only the user's own words get a
+// quiet tinted pill. One interactive turn is live at a time.
 
 function TypingDots() {
   return (
-    <HStack gap="1.5" px="4" py="3.5">
+    <HStack gap="1.5" py="1.5">
       {[0, 1, 2].map((i) => (
         <MotionBox
           key={i}
-          w="2"
-          h="2"
+          w="1.5"
+          h="1.5"
           rounded="full"
           bg="fg.subtle"
           animate={{ opacity: [0.25, 1, 0.25], y: [0, -2, 0] }}
-          transition={{ duration: 1, repeat: Infinity, delay: i * 0.15, ease: "easeInOut" }}
+          transition={{ duration: 1, repeat: Infinity, delay: i * 0.16, ease: "easeInOut" }}
         />
       ))}
     </HStack>
   );
 }
 
-function Bubble({ children }: { children: React.ReactNode }) {
+function Say({ children }: { children: React.ReactNode }) {
   return (
     <MotionBox
-      initial={{ opacity: 0, y: 10 }}
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+      transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
       alignSelf="start"
-      maxW="90%"
+      maxW="92%"
     >
-      <Box
-        bg="surface"
-        borderWidth="1px"
-        borderColor="border"
-        rounded="l3"
-        borderTopLeftRadius="sm"
-        px="4"
-        py="3"
-        fontSize="md"
-        lineHeight="1.65"
-      >
+      <Text fontSize="17px" lineHeight="1.62" color="fg">
         {children}
-      </Box>
+      </Text>
     </MotionBox>
   );
 }
@@ -55,18 +46,19 @@ function Echo({ text }: { text: string }) {
     <MotionBox
       initial={{ opacity: 0, y: 8, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+      transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
       alignSelf="end"
-      maxW="85%"
+      maxW="82%"
     >
       <Box
-        bg="accent"
-        color="accent.fg"
+        bg="accent.subtle"
+        color="accent.emphasis"
         rounded="l3"
-        borderTopRightRadius="sm"
+        borderBottomRightRadius="sm"
         px="4"
         py="2.5"
-        fontSize="md"
+        fontSize="15.5px"
+        lineHeight="1.5"
         fontWeight="medium"
       >
         {text}
@@ -89,7 +81,7 @@ function Choices({
     <MotionBox
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: 0.15 }}
+      transition={{ duration: 0.3, delay: 0.12 }}
       alignSelf="stretch"
     >
       <Wrap gap="2.5" justify="end">
@@ -105,14 +97,20 @@ function Choices({
             px="5"
             whiteSpace="normal"
             textAlign="left"
+            fontWeight="medium"
+            borderColor={o.tone === "accent" ? undefined : "border"}
             onClick={() => onPick(o.value, o.label)}
             _hover={{ transform: "translateY(-1px)" }}
-            transition="transform 0.15s"
+            transition="transform 0.15s, border-color 0.15s"
           >
             <Stack gap="0" align="start">
-              <Text fontWeight="medium">{o.label}</Text>
+              <Text>{o.label}</Text>
               {o.hint && (
-                <Text fontSize="xs" color={o.tone === "accent" ? "whiteAlpha.800" : "fg.subtle"} fontWeight="normal">
+                <Text
+                  fontSize="xs"
+                  fontWeight="normal"
+                  color={o.tone === "accent" ? "whiteAlpha.800" : "fg.subtle"}
+                >
                   {o.hint}
                 </Text>
               )}
@@ -209,19 +207,17 @@ export function Conversation({ turns }: { turns: Turn[] }) {
   }, [turns]);
 
   return (
-    <Stack gap="3.5" pb="8">
+    <Stack gap="4" pb="8">
       {turns.map((t) => {
         switch (t.kind) {
           case "assistant":
-            return <Bubble key={t.id}>{t.content}</Bubble>;
+            return <Say key={t.id}>{t.content}</Say>;
           case "user":
             return <Echo key={t.id} text={t.text} />;
           case "typing":
             return (
               <MotionBox key={t.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} alignSelf="start">
-                <Box bg="surface" borderWidth="1px" borderColor="border" rounded="l3" borderTopLeftRadius="sm">
-                  <TypingDots />
-                </Box>
+                <TypingDots />
               </MotionBox>
             );
           case "choices":
