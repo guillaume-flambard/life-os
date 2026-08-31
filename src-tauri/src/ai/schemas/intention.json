@@ -1,0 +1,9 @@
+{
+  "type": "object",
+  "properties": {
+    "statement": { "type": "string" },
+    "situation": { "type": "string" },
+    "action": { "type": "string" }
+  },
+  "required": ["situation", "action"]
+}

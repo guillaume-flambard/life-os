@@ -1,0 +1,11 @@
+{
+  "type": "object",
+  "properties": {
+    "op": { "type": "string", "enum": ["added", "modified", "removed"] },
+    "statement": { "type": "string" },
+    "situation": { "type": "string" },
+    "action": { "type": "string" },
+    "priority": { "type": "string", "enum": ["must", "should", "may"] }
+  },
+  "required": ["op"]
+}
