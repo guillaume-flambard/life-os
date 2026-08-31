@@ -1,4 +1,4 @@
-import { Box, HStack, Spinner, Stack, Text } from "@chakra-ui/react";
+import { Box, HStack, Stack, Text } from "@chakra-ui/react";
 import { useEffect, useRef } from "react";
 import {
   capturesRecent,
@@ -26,6 +26,7 @@ import { useFlow, type Flow } from "../guide/flow";
 import { AlignFinder, OptionFinder, StepFinder } from "../guide/assists";
 import { useReasoningStream } from "../lib/reasoning";
 import { ReasoningPanel } from "../ui/Reasoning";
+import { MotionBox } from "../ui/motion";
 import { navigate } from "../ui/router";
 
 // The home IS the conversation. First run has no wizard: one warm line, then a
@@ -471,17 +472,28 @@ function ReformulateInline({
       .catch(() => onDone(null));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  return (
-    <Stack gap="2.5" alignSelf="start" maxW="90%">
-      <Box bg="surface" borderWidth="1px" borderColor="border" rounded="l3" borderTopLeftRadius="sm" px="4" py="3">
-        <HStack gap="2.5">
-          <Spinner size="sm" color="accent" />
+  const warming = reasoning.phase === "idle" && !reasoning.text;
+  if (warming) {
+    return (
+      <Box alignSelf="stretch">
+        <HStack gap="2.5" py="1">
+          <MotionBox
+            as="span"
+            color="accent"
+            display="inline-flex"
+            animate={{ opacity: [0.55, 1, 0.55], scale: [0.92, 1, 0.92] }}
+            transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+          >
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
+              <path d="M12 2l1.5 6.5L20 10l-6.5 1.5L12 18l-1.5-6.5L4 10l6.5-1.5z" />
+            </svg>
+          </MotionBox>
           <Text fontSize="sm" color="fg.muted">
             Je le mets en mots clairs…
           </Text>
         </HStack>
       </Box>
-      <ReasoningPanel stream={reasoning} />
-    </Stack>
-  );
+    );
+  }
+  return <ReasoningPanel stream={reasoning} />;
 }

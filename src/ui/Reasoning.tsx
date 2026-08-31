@@ -1,12 +1,21 @@
 import { Box, HStack, Text } from "@chakra-ui/react";
-import { useEffect, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import type { ReasoningStream } from "../lib/reasoning";
 import { MotionBox } from "./motion";
 
-// Live reasoning, in the Claude / ChatGPT register:
-// - while thinking: a shimmering "Réflexion…" label and the thoughts streaming
-//   in, dimmed, auto-scrolled, with the top gently faded out
-// - when done: it folds to a quiet "Réfléchi pendant N s" you can re-open
+// Live reasoning in the refined 2026 register (Claude 4 / MUI X / assistant-ui):
+// the model's streamed thinking is shown as a vertical timeline of short steps
+// on a hairline rail — the current step pulses, past ones settle and dim, a
+// timer runs — then it folds to a quiet "Réfléchi pendant N s" you can re-open.
+
+function splitSteps(text: string): string[] {
+  const t = text.trim();
+  if (!t) return [];
+  const byLine = t.split(/\n+/).map((s) => s.trim()).filter(Boolean);
+  if (byLine.length > 1) return byLine;
+  const bySentence = t.match(/[^.!?…]+[.!?…]*/g)?.map((s) => s.trim()).filter(Boolean);
+  return bySentence && bySentence.length ? bySentence : [t];
+}
 
 function ShimmerLabel({ children }: { children: string }) {
   return (
@@ -15,12 +24,12 @@ function ShimmerLabel({ children }: { children: string }) {
       fontWeight="medium"
       css={{
         backgroundImage:
-          "linear-gradient(90deg, var(--chakra-colors-fg-subtle) 0%, var(--chakra-colors-fg-subtle) 35%, var(--chakra-colors-fg) 50%, var(--chakra-colors-fg-subtle) 65%, var(--chakra-colors-fg-subtle) 100%)",
-        backgroundSize: "200% 100%",
+          "linear-gradient(100deg, var(--chakra-colors-fg-subtle) 30%, var(--chakra-colors-fg) 50%, var(--chakra-colors-fg-subtle) 70%)",
+        backgroundSize: "220% 100%",
         WebkitBackgroundClip: "text",
         backgroundClip: "text",
         color: "transparent",
-        animation: "lo-shimmer 1.6s linear infinite",
+        animation: "lo-shimmer 2.1s linear infinite",
       }}
     >
       {children}
@@ -28,30 +37,84 @@ function ShimmerLabel({ children }: { children: string }) {
   );
 }
 
+function Spark({ pulsing }: { pulsing?: boolean }) {
+  const svg = (
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
+      <path d="M12 2l1.5 6.5L20 10l-6.5 1.5L12 18l-1.5-6.5L4 10l6.5-1.5z" />
+    </svg>
+  );
+  if (!pulsing)
+    return (
+      <Box as="span" color="accent.emphasis" display="inline-flex" flexShrink="0">
+        {svg}
+      </Box>
+    );
+  return (
+    <MotionBox
+      as="span"
+      color="accent"
+      display="inline-flex"
+      flexShrink="0"
+      animate={{ opacity: [0.55, 1, 0.55], scale: [0.92, 1, 0.92] }}
+      transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+    >
+      {svg}
+    </MotionBox>
+  );
+}
+
 function Chevron({ open }: { open: boolean }) {
   return (
-    <Box as="span" color="fg.subtle" transform={open ? "rotate(180deg)" : undefined} transition="transform 0.2s">
-      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+    <Box as="span" color="fg.subtle" ml="1" display="inline-flex" transform={open ? "rotate(180deg)" : undefined} transition="transform 0.25s">
+      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     </Box>
   );
 }
 
-export function ReasoningPanel({ stream }: { stream: ReasoningStream }) {
-  const [openWhenDone, setOpenWhenDone] = useState(false);
-  const bodyRef = useRef<HTMLDivElement>(null);
+function Step({ text, state }: { text: string; state: "active" | "done" }) {
+  const active = state === "active";
+  return (
+    <Box position="relative" pl="6" py="1.5" display="flex">
+      {/* node on the rail */}
+      <Box position="absolute" left="0" top="2.5" w="3.5" h="3.5" display="grid" placeItems="center">
+        {active ? (
+          <MotionBox
+            w="2"
+            h="2"
+            rounded="full"
+            bg="canvas"
+            borderWidth="1.5px"
+            borderColor="accent"
+            animate={{ boxShadow: ["0 0 0 3px rgba(51,172,137,0.22)", "0 0 0 6px rgba(51,172,137,0)"] }}
+            transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+          />
+        ) : (
+          <Box w="1.5" h="1.5" rounded="full" bg="fg.subtle" />
+        )}
+      </Box>
+      <Text fontSize="sm" lineHeight="1.55" color={active ? "fg" : "fg.muted"} transition="color 0.5s">
+        {text}
+        {active && (
+          <Box as="span" ml="0.5" color="accent" css={{ animation: "lo-blink 1.05s step-end infinite" }}>
+            ▍
+          </Box>
+        )}
+      </Text>
+    </Box>
+  );
+}
 
-  // Auto-scroll to the newest thought while thinking.
-  useEffect(() => {
-    if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
-  }, [stream.text]);
+export function ReasoningPanel({ stream }: { stream: ReasoningStream }) {
+  const [open, setOpen] = useState(false);
+  const steps = useMemo(() => splitSteps(stream.text), [stream.text]);
+  const thinking = stream.phase === "thinking";
+  const secs = Math.max(1, Math.round(stream.seconds));
 
   if (stream.phase === "idle" && !stream.text) return null;
 
-  const thinking = stream.phase === "thinking";
-  const secs = Math.max(1, Math.round(stream.seconds));
-  const showBody = thinking || openWhenDone;
+  const showBody = thinking || open;
 
   return (
     <MotionBox
@@ -60,77 +123,53 @@ export function ReasoningPanel({ stream }: { stream: ReasoningStream }) {
       transition={{ duration: 0.25 }}
       alignSelf="stretch"
     >
-      {/* Header */}
       <HStack
         as="button"
-        gap="2"
+        gap="2.5"
         py="1"
-        cursor={thinking ? "default" : "pointer"}
-        onClick={() => !thinking && setOpenWhenDone((v) => !v)}
         w="full"
         justify="start"
+        cursor={thinking ? "default" : "pointer"}
+        onClick={() => !thinking && setOpen((v) => !v)}
+        aria-expanded={thinking ? undefined : open}
       >
+        <Spark pulsing={thinking} />
         {thinking ? (
-          <MotionBox
-            w="2"
-            h="2"
-            rounded="full"
-            bg="accent"
-            animate={{ scale: [1, 1.35, 1], opacity: [0.5, 1, 0.5] }}
-            transition={{ duration: 1.1, repeat: Infinity, ease: "easeInOut" }}
-            flexShrink="0"
-          />
-        ) : (
-          <Box as="span" color="accent.emphasis" flexShrink="0" fontSize="sm">
-            ✦
-          </Box>
-        )}
-        {thinking ? (
-          <ShimmerLabel>Réflexion…</ShimmerLabel>
+          <ShimmerLabel>Réflexion</ShimmerLabel>
         ) : (
           <Text fontSize="sm" fontWeight="medium" color="fg.muted">
             Réfléchi pendant {secs}&nbsp;s
           </Text>
         )}
-        {!thinking && <Chevron open={openWhenDone} />}
+        {thinking && (
+          <Text fontSize="xs" color="fg.subtle" fontVariantNumeric="tabular-nums" letterSpacing="0.02em">
+            {secs}&nbsp;s
+          </Text>
+        )}
+        {!thinking && <Chevron open={open} />}
       </HStack>
 
-      {/* Streaming thoughts */}
-      {showBody && (
+      {showBody && steps.length > 0 && (
         <Box
-          ref={bodyRef}
           mt="1"
-          ml="1"
-          pl="3"
-          borderLeftWidth="2px"
-          borderColor="border"
-          maxH={thinking ? "36" : "72"}
-          overflowY="auto"
-          css={
-            thinking
-              ? {
-                  maskImage: "linear-gradient(to bottom, transparent 0, #000 28px)",
-                  WebkitMaskImage: "linear-gradient(to bottom, transparent 0, #000 28px)",
-                }
-              : undefined
-          }
+          ml="1.5"
+          position="relative"
+          maxH={thinking ? "none" : "80"}
+          overflowY={thinking ? "visible" : "auto"}
+          _before={{
+            content: '""',
+            position: "absolute",
+            left: "6.75px",
+            top: "3",
+            bottom: "3",
+            w: "1.5px",
+            bg: "border",
+          }}
         >
-          <Text
-            as="pre"
-            fontFamily="body"
-            fontSize="sm"
-            color="fg.muted"
-            whiteSpace="pre-wrap"
-            lineHeight="1.7"
-            py="1"
-          >
-            {stream.text || "…"}
-            {thinking && (
-              <Box as="span" ml="0.5" color="accent" css={{ animation: "lo-blink 1s step-end infinite" }}>
-                ▍
-              </Box>
-            )}
-          </Text>
+          {steps.map((s, i) => {
+            const isLast = i === steps.length - 1;
+            return <Step key={i} text={s} state={thinking && isLast ? "active" : "done"} />;
+          })}
         </Box>
       )}
     </MotionBox>
