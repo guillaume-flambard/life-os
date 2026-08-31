@@ -137,7 +137,7 @@ function domainCard(d: Domain, items: Intention[]): string {
               (p) => `<option value="${p}" ${p === draft.priority ? "selected" : ""}>${PRIORITY_LABELS[p]}</option>`,
             ).join("")}
           </select>
-          <button type="submit">Garder</button>
+          <button type="submit" class="primary">Garder</button>
         </div>
       </form>
     </article>`;

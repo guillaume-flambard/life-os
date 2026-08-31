@@ -15,7 +15,7 @@ function currentRouteId(): string {
 
 function renderChrome() {
   app.innerHTML = `
-    <nav class="nav">
+    <nav class="sidebar">
       <div class="brand">Life OS</div>
       <ul>
         ${ROUTES.map(
@@ -34,7 +34,7 @@ function renderChrome() {
 
 async function renderView() {
   const id = currentRouteId();
-  app.querySelectorAll<HTMLAnchorElement>(".nav a").forEach((a) => {
+  app.querySelectorAll<HTMLAnchorElement>(".sidebar a").forEach((a) => {
     a.classList.toggle("active", a.dataset.id === id);
   });
   const view = app.querySelector<HTMLElement>("#view")!;

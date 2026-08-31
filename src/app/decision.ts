@@ -191,7 +191,7 @@ function render(el: HTMLElement) {
         <p class="lead">Une décision te trotte en tête ? On la regarde ensemble, tranquillement.</p>
         <form id="open" class="add-domain">
           <input name="title" placeholder="Quelle décision te trotte ?" autocomplete="off" />
-          <button type="submit">On y va</button>
+          <button type="submit" class="primary">On y va</button>
         </form>
         <div id="dmsg" class="msg" hidden></div>
         <div id="steps"></div>
