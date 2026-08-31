@@ -15,6 +15,7 @@ import {
   type DecisionDetail,
 } from "../lib/ipc";
 import { cleanSituation, cleanAction } from "../lib/marker";
+import { distressBlocks } from "../lib/safety";
 
 // "Le point" — a kind, periodic check-in: replay each intention (no judgment),
 // then integrate any confirmed decision into the compass. Human façade only.
@@ -187,6 +188,7 @@ function renderReplay(el: HTMLElement) {
   });
   el.querySelector<HTMLButtonElement>("#next")!.addEventListener("click", () =>
     guard(el, async () => {
+      if (await distressBlocks(el, st.learning)) return;
       await reviewAddItem(st.review.id, i.id, null, st.outcome, st.learning.trim() || null);
       st.idx++;
       st.outcome = null;

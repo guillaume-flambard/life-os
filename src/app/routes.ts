@@ -1,4 +1,4 @@
-import { getMode, setMode, memoryBackfill, isApiError, type UiMode } from "../lib/ipc";
+import { getMode, setMode, memoryBackfill, exportData, eraseAll, isApiError, type UiMode } from "../lib/ipc";
 import { renderCompass } from "./compass";
 import { renderDecision } from "./decision";
 import { renderCarnet } from "./carnet";
@@ -58,7 +58,19 @@ export const ROUTES: Route[] = [
          <hr style="border:none;border-top:1px solid var(--line);margin:24px 0" />
          <button id="reindex">Rafraîchir la mémoire</button>
          <p class="muted">Aide le compagnon à relier tes décisions et intentions. Nécessite le modèle local d'embeddings (<code>ollama pull embeddinggemma</code>).</p>
-         <div id="reindex-msg" class="msg" hidden></div>`,
+         <div id="reindex-msg" class="msg" hidden></div>
+
+         <hr style="border:none;border-top:1px solid var(--line);margin:24px 0" />
+         <h2 style="font-size:16px;font-weight:600">Tes données</h2>
+         <p class="muted">Tout reste sur ton appareil. Tu peux tout emporter ou tout effacer.</p>
+         <div class="row" style="gap:8px;margin-top:8px">
+           <button id="export">Exporter mes données</button>
+           <button id="erase" class="danger">Tout effacer…</button>
+         </div>
+         <div id="data-msg" class="msg" hidden></div>
+
+         <hr style="border:none;border-top:1px solid var(--line);margin:24px 0" />
+         <p class="muted">Life OS n'est pas un thérapeute et ne pose aucun diagnostic. En cas de détresse : <strong>3114</strong> (prévention du suicide, 24h/24), SOS Amitié <strong>09 72 39 40 50</strong>, urgences <strong>112</strong>.</p>`,
       );
       el.querySelector<HTMLInputElement>("#expert")!.addEventListener("change", async (e) => {
         const next: UiMode = (e.target as HTMLInputElement).checked ? "expert" : "human";
@@ -82,6 +94,45 @@ export const ROUTES: Route[] = [
         } finally {
           reindex.disabled = false;
           reindex.textContent = "Rafraîchir la mémoire";
+        }
+      });
+
+      const dmsg = el.querySelector<HTMLDivElement>("#data-msg")!;
+      el.querySelector<HTMLButtonElement>("#export")!.addEventListener("click", async () => {
+        try {
+          const path = await exportData();
+          dmsg.hidden = false;
+          dmsg.className = "msg info";
+          dmsg.textContent = `Exporté ici : ${path}`;
+        } catch (err) {
+          dmsg.hidden = false;
+          dmsg.className = "msg warn";
+          dmsg.textContent = isApiError(err) ? err.message : "Export impossible.";
+        }
+      });
+
+      // Erase is two-step: first click arms, second click confirms.
+      const erase = el.querySelector<HTMLButtonElement>("#erase")!;
+      let armed = false;
+      erase.addEventListener("click", async () => {
+        if (!armed) {
+          armed = true;
+          erase.textContent = "Confirmer : tout effacer";
+          dmsg.hidden = false;
+          dmsg.className = "msg warn";
+          dmsg.textContent = "C'est irréversible. Clique encore pour tout effacer, ou change d'écran pour annuler.";
+          return;
+        }
+        try {
+          await eraseAll("EFFACER");
+          dmsg.className = "msg info";
+          dmsg.textContent = "Tout a été effacé.";
+        } catch (err) {
+          dmsg.className = "msg warn";
+          dmsg.textContent = isApiError(err) ? err.message : "Effacement impossible.";
+        } finally {
+          armed = false;
+          erase.textContent = "Tout effacer…";
         }
       });
     },

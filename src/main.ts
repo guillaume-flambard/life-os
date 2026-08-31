@@ -24,7 +24,10 @@ function renderChrome() {
         ).join("")}
       </ul>
     </nav>
-    <main id="view"></main>`;
+    <div class="content">
+      <main id="view"></main>
+      <footer class="disclaimer">Life OS n'est pas un thérapeute et ne pose aucun diagnostic. En cas de détresse, parle à quelqu'un — appelle le 3114.</footer>
+    </div>`;
 }
 
 async function renderView() {

@@ -381,4 +381,31 @@ mod tests {
         let ai = crate::ai::Ollama::from_env();
         assert!(ai.contradiction_question("changer de job", &[]).await.unwrap().is_none());
     }
+
+    #[test]
+    fn export_contains_data_and_erase_wipes_everything() {
+        use repo::{admin, compass};
+        register_vec();
+        let conn = Connection::open_in_memory().unwrap();
+        migrate(&conn).unwrap();
+
+        let dom = compass::create_domain(&conn, "Mes proches").unwrap().id;
+        compass::create_intention(&conn, &dom, "être présent pour mon frère", None, None, "must").unwrap();
+        let (_dec, _delta) = proposed_decision_with_added_delta(&conn, "changer de job ?", "protéger mes soirées");
+
+        // Export (FR15): the Markdown contains the stored data.
+        let md = admin::export_markdown(&conn).unwrap();
+        assert!(md.contains("Mes proches"));
+        assert!(md.contains("être présent pour mon frère"));
+        assert!(md.contains("changer de job ?"));
+
+        // Erase (FR15): every user table is emptied.
+        admin::erase_all(&conn).unwrap();
+        for table in ["domains", "intentions", "decisions", "deltas", "stories", "memory_chunks", "events", "settings"] {
+            let n: i64 = conn
+                .query_row(&format!("SELECT count(*) FROM {table}"), [], |r| r.get(0))
+                .unwrap();
+            assert_eq!(n, 0, "{table} should be empty after erase");
+        }
+    }
 }

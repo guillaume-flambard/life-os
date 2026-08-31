@@ -2,13 +2,14 @@
 //! lock the connection; AI commands are async and hit localhost Ollama only.
 
 use crate::ai::Ollama;
-use crate::db::repo::{compass, decision, memory, review};
+use crate::db::repo::{admin, compass, decision, memory, review};
 use crate::db::{repo, Db};
 use crate::domain::{
     AlignmentNote, ApiError, Decision, DecisionDetail, DecisionFull, DecisionOption, Delta,
     DeltaInput, DeltaResolution, DeltaRow, Domain, Health, Intention, MemoryHit, OptionSuggestions,
-    Reformulation, Review, ReviewItem, StoryRow, StorySuggestion,
+    Reformulation, Review, ReviewItem, ScreenResult, StoryRow, StorySuggestion,
 };
+use crate::safety;
 use tauri::State;
 
 #[tauri::command]
@@ -430,4 +431,38 @@ pub async fn contradiction_check(
             .collect()
     };
     ai.contradiction_question(&text, &related).await.map_err(ApiError::ai)
+}
+
+// --- Safety (distress screening, export, erase) ---------------------------
+
+/// Local, on-device screening. No DB, no network — the text is never stored or sent.
+#[tauri::command]
+pub fn safety_screen(text: String) -> ScreenResult {
+    safety::screen(&text)
+}
+
+/// Export all data to a Markdown file under the user's Downloads; return the path.
+#[tauri::command]
+pub fn export_data(db: State<'_, Db>) -> Result<String, ApiError> {
+    let markdown = {
+        let conn = db.0.lock().unwrap();
+        admin::export_markdown(&conn)?
+    };
+    let home = std::env::var("HOME").map_err(|_| ApiError::invalid("dossier utilisateur introuvable".to_string()))?;
+    let downloads = std::path::Path::new(&home).join("Downloads");
+    let dir = if downloads.is_dir() { downloads } else { std::path::PathBuf::from(&home) };
+    let name = format!("life-os-export-{}.md", chrono::Utc::now().format("%Y%m%d-%H%M%S"));
+    let path = dir.join(name);
+    std::fs::write(&path, markdown).map_err(|e| ApiError::db(e))?;
+    Ok(path.to_string_lossy().into_owned())
+}
+
+/// Erase everything. Guarded by an explicit confirmation token from the UI.
+#[tauri::command]
+pub fn erase_all(db: State<'_, Db>, confirm: String) -> Result<(), ApiError> {
+    if confirm != "EFFACER" {
+        return Err(ApiError::invalid("confirmation manquante".to_string()));
+    }
+    let conn = db.0.lock().unwrap();
+    admin::erase_all(&conn)
 }

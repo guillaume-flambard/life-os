@@ -15,6 +15,7 @@ import {
   type Priority,
 } from "../lib/ipc";
 import { cleanSituation, cleanAction } from "../lib/marker";
+import { distressBlocks } from "../lib/safety";
 
 // The compass surface: life areas ("pans de vie") and intentions ("ce qui
 // compte"), written as "quand [situation], je [action]". Human façade only.
@@ -234,6 +235,7 @@ function wire(el: HTMLElement) {
         return;
       }
       handle(el, async () => {
+        if (await distressBlocks(el, `${statement} ${situation} ${action}`)) return;
         await createIntention(
           domainId,
           statement || `${situation} → ${action}`,

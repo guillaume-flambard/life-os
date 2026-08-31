@@ -312,3 +312,21 @@ export const memoryRecall = (query: string, k?: number) =>
 export const memoryBackfill = () => invoke<number>("memory_backfill");
 export const contradictionCheck = (text: string) =>
   invoke<string | null>("contradiction_check", { text });
+
+// --- Safety ---------------------------------------------------------------
+
+export interface Resource {
+  name: string;
+  contact: string;
+  note: string;
+}
+
+export interface ScreenResult {
+  distress: boolean;
+  high_stakes: string | null;
+  resources: Resource[];
+}
+
+export const safetyScreen = (text: string) => invoke<ScreenResult>("safety_screen", { text });
+export const exportData = () => invoke<string>("export_data");
+export const eraseAll = (confirm: string) => invoke<void>("erase_all", { confirm });

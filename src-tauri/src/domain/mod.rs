@@ -243,3 +243,24 @@ pub struct MemoryHit {
     pub source_type: String,
     pub source_id: Option<String>,
 }
+
+// --- Safety ---------------------------------------------------------------
+
+/// A crisis or support resource shown to the user.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Resource {
+    pub name: String,
+    pub contact: String,
+    pub note: String,
+}
+
+/// Result of local, on-device screening of user text. Never leaves the device.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScreenResult {
+    /// A crisis signal was detected — leave the coaching flow, show resources.
+    pub distress: bool,
+    /// A high-stakes category (argent / santé / juridique), if any. Non-blocking.
+    pub high_stakes: Option<String>,
+    /// Crisis resources, populated when `distress` is true.
+    pub resources: Vec<Resource>,
+}

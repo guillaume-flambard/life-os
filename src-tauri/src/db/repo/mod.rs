@@ -1,6 +1,7 @@
 //! Typed data access. Every mutation records an append-only event and never
 //! physically deletes a row (soft-delete via `deleted_at`).
 
+pub mod admin;
 pub mod compass;
 pub mod decision;
 pub mod memory;

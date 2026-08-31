@@ -24,6 +24,7 @@ import {
   type DecisionDetail,
   type MemoryHit,
 } from "../lib/ipc";
+import { distressBlocks, highStakesNote } from "../lib/safety";
 
 // The guided decision flow (GROW-shaped), one focus at a time. The engine records
 // a change proposal; the user sees a warm, step-by-step conversation. No jargon.
@@ -46,11 +47,17 @@ interface Session {
 
 let session: Session | null = null;
 
-// Recalled history + an optional gentle question, fetched when a session opens.
-let ctx: { recall: MemoryHit[]; question: string | null } = { recall: [], question: null };
+// Recalled history, an optional gentle question, and a high-stakes note — fetched
+// when a session opens.
+let ctx: { recall: MemoryHit[]; question: string | null; highStakes: string | null } = {
+  recall: [],
+  question: null,
+  highStakes: null,
+};
 
 async function loadContext(el: HTMLElement, title: string) {
-  ctx = { recall: [], question: null };
+  ctx = { recall: [], question: null, highStakes: null };
+  ctx.highStakes = await highStakesNote(title);
   try {
     ctx.recall = await memoryRecall(title, 4);
   } catch {
@@ -65,17 +72,22 @@ async function loadContext(el: HTMLElement, title: string) {
 }
 
 function contextPanel(): string {
-  if (!ctx.recall.length && !ctx.question) return "";
+  if (!ctx.recall.length && !ctx.question && !ctx.highStakes) return "";
   return `
-    <div class="recall">
-      ${ctx.question ? `<div class="question"><strong>Une question me vient :</strong> ${esc(ctx.question)}</div>` : ""}
-      ${
-        ctx.recall.length
-          ? `<div class="muted">Ça me rappelle :</div>
-             <ul class="intentions">${ctx.recall.map((h) => `<li>${esc(h.content)}</li>`).join("")}</ul>`
-          : ""
-      }
-    </div>`;
+    ${ctx.highStakes ? `<div class="msg warn">${esc(ctx.highStakes)}</div>` : ""}
+    ${
+      ctx.recall.length || ctx.question
+        ? `<div class="recall">
+            ${ctx.question ? `<div class="question"><strong>Une question me vient :</strong> ${esc(ctx.question)}</div>` : ""}
+            ${
+              ctx.recall.length
+                ? `<div class="muted">Ça me rappelle :</div>
+                   <ul class="intentions">${ctx.recall.map((h) => `<li>${esc(h.content)}</li>`).join("")}</ul>`
+                : ""
+            }
+          </div>`
+        : ""
+    }`;
 }
 
 function esc(s: string): string {
@@ -125,6 +137,7 @@ function render(el: HTMLElement) {
       const value = el.querySelector<HTMLInputElement>('#open input[name="title"]')!.value.trim();
       if (!value) return;
       guard(el, async () => {
+        if (await distressBlocks(el, value)) return; // safety before anything else
         const d = await openDecision(value);
         session = { detail: await decisionDetail(d.id), step: 0 };
         render(el);
@@ -156,6 +169,13 @@ function render(el: HTMLElement) {
   });
   el.querySelector<HTMLButtonElement>("#next")?.addEventListener("click", () =>
     guard(el, async () => {
+      // Screen the free-text of steps that carry feelings (reality, why) first.
+      const b = body(el);
+      const freeText =
+        b.querySelector<HTMLTextAreaElement>("#reality")?.value ??
+        b.querySelector<HTMLTextAreaElement>("#why")?.value ??
+        "";
+      if (await distressBlocks(el, freeText)) return;
       await persistStep(el);
       if (session) session.step++;
       await refresh(el);
