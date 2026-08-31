@@ -18,7 +18,7 @@
 - [x] 4.1 Export then import into a fresh DB reproduces the data (rows + events)   — cargo test
 - [x] 4.2 A newer row on one side wins on merge; an older one does not overwrite   — cargo test
 - [x] 4.3 age encrypt → decrypt round-trips the snapshot   — cargo test
-- [ ] 4.4 Live: export with a passphrase, import it back, see the summary   — manual (GUI)
+- [x] 4.4 Live: export with a passphrase, import it back, see the summary   — verified on-screen: exported a real age file, erased all data, imported with the passphrase (merge summary shown), and the capture was restored
 
 ## Status
 Compiles; front typechecks. 17 headless tests pass, incl. an export→import roundtrip into a fresh DB, last-write-wins (newer wins, older skipped), events unioned without duplication, and age encrypt/decrypt round-trip (wrong passphrase rejected). Settings "Synchroniser" section wired. GUI check (4.4) pending.
