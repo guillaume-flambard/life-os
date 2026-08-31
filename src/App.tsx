@@ -2,17 +2,15 @@ import { Box, Flex, Spinner, Stack, Text } from "@chakra-ui/react";
 import { useEffect, useState } from "react";
 import { getMode, isOnboarded, setMode as saveMode, type UiMode } from "./lib/ipc";
 import { PageTransition } from "./ui/motion";
-import { navigate, useRoute, type Route } from "./ui/router";
-import { Sidebar } from "./ui/Sidebar";
-import { Topbar } from "./ui/Topbar";
+import { useRoute, type Route } from "./ui/router";
+import { Header } from "./ui/Header";
 import { Toaster } from "./ui/toaster";
-import { Home } from "./screens/Home";
+import { Guide } from "./screens/Guide";
 import { Compass } from "./screens/Compass";
 import { Carnet } from "./screens/Carnet";
 import { Review } from "./screens/Review";
 import { Daily } from "./screens/Daily";
 import { Settings } from "./screens/Settings";
-import { Onboarding } from "./screens/Onboarding";
 import { Distress } from "./screens/Distress";
 
 export interface Ctx {
@@ -20,10 +18,15 @@ export interface Ctx {
   setMode: (m: UiMode) => void;
 }
 
-function Screen({ route, ctx }: { route: Route; ctx: Ctx }) {
+function Screen({ route, ctx, onboarded, reveal }: {
+  route: Route;
+  ctx: Ctx;
+  onboarded: boolean;
+  reveal: () => void;
+}) {
   switch (route) {
     case "home":
-      return <Home ctx={ctx} />;
+      return <Guide onboarded={onboarded} onReveal={reveal} />;
     case "compass":
       return <Compass ctx={ctx} />;
     case "carnet":
@@ -34,10 +37,8 @@ function Screen({ route, ctx }: { route: Route; ctx: Ctx }) {
       return <Daily ctx={ctx} />;
     case "settings":
       return <Settings ctx={ctx} />;
-    case "distress":
-      return <Distress />;
     default:
-      return <Home ctx={ctx} />;
+      return <Guide onboarded={onboarded} onReveal={reveal} />;
   }
 }
 
@@ -45,6 +46,7 @@ export function App() {
   const route = useRoute();
   const [booted, setBooted] = useState(false);
   const [onboarded, setOnboarded] = useState(false);
+  const [revealed, setRevealed] = useState(false);
   const [mode, setModeState] = useState<UiMode>("human");
 
   useEffect(() => {
@@ -52,6 +54,7 @@ export function App() {
       try {
         const [ob, m] = await Promise.all([isOnboarded(), getMode()]);
         setOnboarded(ob);
+        setRevealed(ob);
         setModeState(m);
       } finally {
         setBooted(true);
@@ -64,6 +67,7 @@ export function App() {
     void saveMode(m);
   };
   const ctx: Ctx = { mode, setMode };
+  const reveal = () => setRevealed(true);
 
   if (!booted) {
     return (
@@ -78,21 +82,6 @@ export function App() {
     );
   }
 
-  // Onboarding takes the whole window; nothing else is reachable until done.
-  if (!onboarded || route === "onboarding") {
-    return (
-      <>
-        <Onboarding
-          onDone={() => {
-            setOnboarded(true);
-            navigate("home");
-          }}
-        />
-        <Toaster />
-      </>
-    );
-  }
-
   if (route === "distress") {
     return (
       <>
@@ -103,18 +92,15 @@ export function App() {
   }
 
   return (
-    <Flex h="100vh" bg="canvas" overflow="hidden">
-      <Sidebar route={route} />
-      <Flex direction="column" flex="1" minW="0">
-        <Topbar ctx={ctx} />
-        <Box flex="1" overflowY="auto">
-          <Box maxW="3xl" mx="auto" px={{ base: "5", md: "8" }} py={{ base: "6", md: "8" }}>
-            <PageTransition key={route}>
-              <Screen route={route} ctx={ctx} />
-            </PageTransition>
-          </Box>
+    <Flex direction="column" h="100vh" bg="canvas" overflow="hidden">
+      <Header ctx={ctx} revealed={revealed} />
+      <Box flex="1" overflowY="auto">
+        <Box maxW="3xl" mx="auto" px={{ base: "4", md: "6" }} py={{ base: "3", md: "5" }}>
+          <PageTransition key={route}>
+            <Screen route={route} ctx={ctx} onboarded={onboarded} reveal={reveal} />
+          </PageTransition>
         </Box>
-      </Flex>
+      </Box>
       <Toaster />
     </Flex>
   );
