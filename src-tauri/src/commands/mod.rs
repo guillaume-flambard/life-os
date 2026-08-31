@@ -7,10 +7,10 @@ use crate::db::{repo, Db};
 use crate::domain::{
     AlignmentNote, ApiError, Capture, Decision, DecisionDetail, DecisionFull, DecisionOption, Delta,
     DeltaInput, DeltaResolution, DeltaRow, Domain, Health, IfThenPlan, Intention, MemoryHit,
-    OpenStory, OptionSuggestions, Reformulation, Review, ReviewItem, ScreenResult, StoryRow,
-    StorySuggestion, Theme, WoopSuggestion,
+    MergeSummary, OpenStory, OptionSuggestions, Reformulation, Review, ReviewItem, ScreenResult,
+    StoryRow, StorySuggestion, Theme, WoopSuggestion,
 };
-use crate::safety;
+use crate::{safety, sync};
 use tauri::State;
 
 #[tauri::command]
@@ -541,6 +541,39 @@ pub fn capture_add(
 pub fn captures_recent(db: State<'_, Db>, limit: Option<i64>) -> Result<Vec<Capture>, ApiError> {
     let conn = db.0.lock().unwrap();
     capture::list_recent(&conn, limit.unwrap_or(30).clamp(1, 200))
+}
+
+// --- Sync (Phase 2): encrypted snapshot export / merge import -------------
+
+#[tauri::command]
+pub fn sync_export(db: State<'_, Db>, passphrase: String) -> Result<String, ApiError> {
+    if passphrase.len() < 8 {
+        return Err(ApiError::invalid("choisis une phrase secrète d'au moins 8 caractères".to_string()));
+    }
+    let snapshot = {
+        let conn = db.0.lock().unwrap();
+        sync::export_json(&conn)?
+    };
+    let bytes = serde_json::to_vec(&snapshot).map_err(|e| ApiError::db(e))?;
+    let encrypted = sync::encrypt(&bytes, &passphrase).map_err(ApiError::invalid)?;
+
+    let home = std::env::var("HOME").map_err(|_| ApiError::invalid("dossier utilisateur introuvable".to_string()))?;
+    let downloads = std::path::Path::new(&home).join("Downloads");
+    let dir = if downloads.is_dir() { downloads } else { std::path::PathBuf::from(&home) };
+    let name = format!("life-os-sync-{}.age", chrono::Utc::now().format("%Y%m%d-%H%M%S"));
+    let path = dir.join(name);
+    std::fs::write(&path, encrypted).map_err(|e| ApiError::db(e))?;
+    Ok(path.to_string_lossy().into_owned())
+}
+
+#[tauri::command]
+pub fn sync_import(db: State<'_, Db>, path: String, passphrase: String) -> Result<MergeSummary, ApiError> {
+    let encrypted = std::fs::read(&path).map_err(|_| ApiError::invalid("fichier introuvable".to_string()))?;
+    let bytes = sync::decrypt(&encrypted, &passphrase).map_err(ApiError::invalid)?;
+    let snapshot: serde_json::Value =
+        serde_json::from_slice(&bytes).map_err(|_| ApiError::invalid("instantané illisible".to_string()))?;
+    let conn = db.0.lock().unwrap();
+    sync::import_merge(&conn, &snapshot)
 }
 
 /// Erase everything. Guarded by an explicit confirmation token from the UI.

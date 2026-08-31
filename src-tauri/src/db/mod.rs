@@ -388,6 +388,60 @@ mod tests {
     }
 
     #[test]
+    fn sync_roundtrip_merges_and_last_write_wins() {
+        use crate::sync;
+        use repo::compass;
+        use serde_json::json;
+        register_vec();
+
+        // Device A with some data.
+        let a = Connection::open_in_memory().unwrap();
+        migrate(&a).unwrap();
+        let dom = compass::create_domain(&a, "Mes proches").unwrap().id;
+        compass::create_intention(&a, &dom, "être présent", None, None, "must").unwrap();
+
+        // Fresh device B imports A's snapshot → B reproduces the data.
+        let b = Connection::open_in_memory().unwrap();
+        migrate(&b).unwrap();
+        let snap = sync::export_json(&a).unwrap();
+        let sum = sync::import_merge(&b, &snap).unwrap();
+        assert!(sum.inserted > 0);
+        assert_eq!(compass::list_domains(&b).unwrap().len(), 1);
+        assert_eq!(compass::list_intentions(&b, &dom).unwrap().len(), 1);
+
+        // Newer incoming row wins; older does not overwrite.
+        let newer = json!({"tables":{"domains":[{
+            "id": dom, "name": "Proches (à jour)", "sort_order": 0, "status": "active",
+            "created_at": "2026-05-01T00:00:00Z", "updated_at": "2999-01-01T00:00:00Z", "deleted_at": null
+        }]}});
+        assert_eq!(sync::import_merge(&b, &newer).unwrap().updated, 1);
+        assert_eq!(compass::list_domains(&b).unwrap()[0].name, "Proches (à jour)");
+
+        let older = json!({"tables":{"domains":[{
+            "id": dom, "name": "vieux nom", "sort_order": 0, "status": "active",
+            "created_at": "2026-05-01T00:00:00Z", "updated_at": "2000-01-01T00:00:00Z", "deleted_at": null
+        }]}});
+        assert_eq!(sync::import_merge(&b, &older).unwrap().skipped, 1);
+        assert_eq!(compass::list_domains(&b).unwrap()[0].name, "Proches (à jour)");
+
+        // Re-importing the same snapshot unions events without duplicating them.
+        let before: i64 = b.query_row("SELECT count(*) FROM events", [], |r| r.get(0)).unwrap();
+        sync::import_merge(&b, &snap).unwrap();
+        let after: i64 = b.query_row("SELECT count(*) FROM events", [], |r| r.get(0)).unwrap();
+        assert_eq!(before, after, "events are unioned, not duplicated");
+    }
+
+    #[test]
+    fn sync_age_encrypt_decrypt_roundtrips_and_rejects_wrong_passphrase() {
+        use crate::sync;
+        let plain = b"instantane secret";
+        let enc = sync::encrypt(plain, "phrase-secrete-123").unwrap();
+        assert_ne!(enc, plain);
+        assert_eq!(sync::decrypt(&enc, "phrase-secrete-123").unwrap(), plain);
+        assert!(sync::decrypt(&enc, "mauvaise").is_err());
+    }
+
+    #[test]
     fn daily_capture_migration_persist_export_and_erase() {
         use repo::{admin, capture};
         register_vec();

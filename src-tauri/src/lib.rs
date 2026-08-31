@@ -7,6 +7,7 @@ mod db;
 mod domain;
 mod events;
 mod safety;
+mod sync;
 
 use std::sync::Mutex;
 use tauri::Manager;
@@ -85,6 +86,8 @@ pub fn run() {
             commands::generate_woop,
             commands::capture_add,
             commands::captures_recent,
+            commands::sync_export,
+            commands::sync_import,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Life OS");

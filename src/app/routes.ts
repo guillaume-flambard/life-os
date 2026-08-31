@@ -1,4 +1,4 @@
-import { getMode, setMode, memoryBackfill, exportData, eraseAll, isApiError, type UiMode } from "../lib/ipc";
+import { getMode, setMode, memoryBackfill, exportData, eraseAll, syncExport, syncImport, isApiError, type UiMode } from "../lib/ipc";
 import { renderCompass } from "./compass";
 import { renderDecision } from "./decision";
 import { renderCarnet } from "./carnet";
@@ -77,8 +77,52 @@ export const ROUTES: Route[] = [
          <div id="data-msg" class="msg" hidden></div>
 
          <hr style="border:none;border-top:1px solid var(--line);margin:24px 0" />
+         <h2 style="font-size:16px;font-weight:600">Synchroniser tes appareils</h2>
+         <p class="muted">Crée un instantané chiffré à porter sur un autre appareil (AirDrop, Syncthing, Tailscale, clé USB). Chiffré de bout en bout par ta phrase secrète — rien ne passe par un serveur.</p>
+         <div class="sync-block">
+           <input type="password" id="sync-pass" placeholder="Phrase secrète (8+ caractères)" autocomplete="off" />
+           <div class="row"><button id="sync-export">Créer un instantané</button></div>
+         </div>
+         <div class="sync-block" style="margin-top:12px">
+           <input type="text" id="sync-path" placeholder="Chemin du fichier .age à importer" autocomplete="off" />
+           <input type="password" id="sync-pass2" placeholder="Phrase secrète" autocomplete="off" />
+           <div class="row"><button id="sync-import">Importer et fusionner</button></div>
+         </div>
+         <p class="muted">Après un import sur un nouvel appareil, relance « Rafraîchir la mémoire ».</p>
+         <div id="sync-msg" class="msg" hidden></div>
+
+         <hr style="border:none;border-top:1px solid var(--line);margin:24px 0" />
          <p class="muted">Life OS n'est pas un thérapeute et ne pose aucun diagnostic. En cas de détresse : <strong>3114</strong> (prévention du suicide, 24h/24), SOS Amitié <strong>09 72 39 40 50</strong>, urgences <strong>112</strong>.</p>`,
       );
+
+      const smsg = el.querySelector<HTMLDivElement>("#sync-msg")!;
+      el.querySelector<HTMLButtonElement>("#sync-export")!.addEventListener("click", async () => {
+        const pass = el.querySelector<HTMLInputElement>("#sync-pass")!.value;
+        try {
+          const path = await syncExport(pass);
+          smsg.hidden = false;
+          smsg.className = "msg info";
+          smsg.textContent = `Instantané chiffré créé : ${path}`;
+        } catch (err) {
+          smsg.hidden = false;
+          smsg.className = "msg warn";
+          smsg.textContent = isApiError(err) ? err.message : "Export impossible.";
+        }
+      });
+      el.querySelector<HTMLButtonElement>("#sync-import")!.addEventListener("click", async () => {
+        const path = el.querySelector<HTMLInputElement>("#sync-path")!.value.trim();
+        const pass = el.querySelector<HTMLInputElement>("#sync-pass2")!.value;
+        try {
+          const s = await syncImport(path, pass);
+          smsg.hidden = false;
+          smsg.className = "msg info";
+          smsg.textContent = `Fusionné : ${s.inserted} ajoutés, ${s.updated} mis à jour, ${s.skipped} déjà à jour.`;
+        } catch (err) {
+          smsg.hidden = false;
+          smsg.className = "msg warn";
+          smsg.textContent = isApiError(err) ? err.message : "Import impossible.";
+        }
+      });
       el.querySelector<HTMLInputElement>("#expert")!.addEventListener("change", async (e) => {
         const next: UiMode = (e.target as HTMLInputElement).checked ? "expert" : "human";
         await setMode(next);

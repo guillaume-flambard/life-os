@@ -287,6 +287,14 @@ pub struct OpenStory {
     pub done_when: Option<String>,
 }
 
+/// Result of merging an imported snapshot.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct MergeSummary {
+    pub inserted: i64,
+    pub updated: i64,
+    pub skipped: i64,
+}
+
 /// A daily capture — a lightweight local jot.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Capture {

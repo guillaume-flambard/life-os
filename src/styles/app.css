@@ -188,3 +188,9 @@ select { border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; ba
 .captures { margin-top: 20px; }
 .captures li { display: block; }
 .quiet { margin-top: 24px; font-style: italic; }
+
+/* Sync */
+.sync-block { display: grid; gap: 8px; max-width: 520px; }
+.sync-block input { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: var(--bg); color: var(--fg); font: inherit; }
+#sync-export, #sync-import { border: 1px solid var(--line); background: none; color: var(--fg); border-radius: 8px; padding: 8px 14px; cursor: pointer; }
+#sync-export:hover, #sync-import:hover { background: var(--line); }

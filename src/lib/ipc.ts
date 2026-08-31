@@ -412,3 +412,15 @@ export const captureAdd = (content: string, kind: "note" | "reflection" = "note"
   invoke<Capture>("capture_add", { content, kind, decisionId: null, intentionId: null });
 export const capturesRecent = (limit?: number) =>
   invoke<Capture[]>("captures_recent", { limit: limit ?? null });
+
+// --- Sync (Phase 2) -------------------------------------------------------
+
+export interface MergeSummary {
+  inserted: number;
+  updated: number;
+  skipped: number;
+}
+
+export const syncExport = (passphrase: string) => invoke<string>("sync_export", { passphrase });
+export const syncImport = (path: string, passphrase: string) =>
+  invoke<MergeSummary>("sync_import", { path, passphrase });
