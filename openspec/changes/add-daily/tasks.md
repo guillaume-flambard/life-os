@@ -19,7 +19,7 @@
 - [x] 4.1 Migration 0002 applies once; re-run is a no-op; captures table exists   — cargo test
 - [x] 4.2 A capture persists and is listed; each logs an event   — cargo test
 - [x] 4.3 Export includes captures; erase wipes them   — cargo test
-- [ ] 4.4 Live: capture a note, see it today, do a next step; empty state reads kindly   — manual (GUI)
+- [x] 4.4 Live: capture a note, see it today, do a next step; empty state reads kindly   — verified on-screen: kind empty state ("rien aujourd'hui ? c'est très bien"), then a capture persisted and listed as "aujourd'hui"
 
 ## Status
 Compiles; front typechecks. 15 headless tests pass, incl. migration 0002 idempotence, capture persistence with an event, and export/erase covering captures. New "Aujourd'hui" surface wired. GUI check (4.4) pending.
