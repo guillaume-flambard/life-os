@@ -10,7 +10,7 @@ import {
   type Health,
 } from "../lib/ipc";
 import { useColorMode } from "../provider";
-import { Card, FieldLabel, SectionTitle } from "../ui/primitives";
+import { Card, FieldLabel, PageHeader, SectionTitle } from "../ui/primitives";
 import { Async, useAsync, humanError } from "../ui/states";
 import { toaster } from "../ui/toaster";
 
@@ -21,6 +21,7 @@ export function Settings({ ctx }: { ctx: Ctx }) {
 
   return (
     <Stack gap="6">
+      <PageHeader title="Réglages" sub="L'app, l'IA locale, tes données." />
       <Box>
         <SectionTitle hint="Ce qui fait tourner l'app, ici, sur ta machine.">État</SectionTitle>
         <Stack gap="2.5">
