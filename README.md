@@ -64,22 +64,47 @@ Tauri v2 · TypeScript + Vite front · a Rust backend that owns an encrypted SQL
 snapshots encrypted with `age`. The engine mirrors OpenSpec (living specs + change
 proposals with deltas); roles are BMAD-style *lenses*, not a multi-agent debate.
 
-## Run it
+## The AI is optional
 
-Prerequisites: Node 20+, Rust (stable), [Ollama](https://ollama.com), macOS Apple
-Silicon (primary target).
+Life OS runs **fully without any model** — the compass, the guided (debiased)
+decision, the check-in, keyword memory, the daily loop, sync, and the safety net all
+work offline with nothing installed. A local model only powers the *assists*
+(suggesting options, reformulating an intention, semantic recall, the gentle
+contradiction question); without one, those degrade softly and everything else is
+unaffected. Value without AI is a design rule, not a fallback.
+
+To turn the assists on, install [Ollama](https://ollama.com) (macOS or Windows) and
+pull the models — then restart the app:
 
 ```bash
 ollama pull qwen3:8b            # conversation (or gemma3:12b on 24-32 GB RAM)
 ollama pull embeddinggemma      # embeddings for semantic recall (768-dim)
+```
+
+Override the chat model with `LIFEOS_MODEL` and the endpoint with `LIFEOS_OLLAMA_URL`
+(e.g. to reach an Ollama on another machine over Tailscale).
+
+## Run it
+
+Prerequisites: Node 20+, Rust (stable). Primary target macOS Apple Silicon; Windows
+installers are produced by CI (`.github/workflows/build.yml`).
+
+```bash
 npm install
 cargo install tauri-cli --version "^2"   # first time only
 npm run tauri dev
 ```
 
 The encrypted DB is created on first run under the app data dir; its key is stored
-in the OS keychain. Override the chat model with `LIFEOS_MODEL` and the endpoint
-with `LIFEOS_OLLAMA_URL`.
+in the OS keychain (Credential Manager on Windows).
+
+### Installing a build (unsigned)
+
+The builds are not code-signed yet, so the OS warns on first open — this is expected
+for a pre-1.0 open-source app:
+
+- **macOS**: right-click the app → **Open** → **Open** (once).
+- **Windows**: run the `.msi`; on the SmartScreen prompt, **More info → Run anyway**.
 
 > Dev tip: unsigned dev builds get a fresh signature each rebuild, so the keychain
 > refuses the previous key. Set a fixed key to keep the same DB across rebuilds:
