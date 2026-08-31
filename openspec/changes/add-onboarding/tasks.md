@@ -14,8 +14,8 @@
 - [x] 3.2 Hidden until themes exist; a mirror, never a form; human façade
 
 ## 4. Verification
-- [ ] 4.1 A first-time user reaches the decision entry without any form or account   — manual (GUI)
-- [ ] 4.2 The welcome does not show again after it is dismissed   — manual (GUI)
+- [x] 4.1 A first-time user reaches the decision entry without any form or account   — verified on-screen: welcome → single CTA → decision entry
+- [x] 4.2 The welcome does not show again after it is dismissed   — verified on-screen: reload lands straight on home (flag persisted)
 - [x] 4.3 Extraction returns recurring terms from the user's own text and ignores stopwords   — cargo test
 - [x] 4.4 With little/no usage, the profile is empty (no panel)   — cargo test
 
