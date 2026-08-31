@@ -1,5 +1,6 @@
-import { Box, Button, Flex, HStack, Stack, Text } from "@chakra-ui/react";
+import { Box, Flex, HStack, Stack, Text } from "@chakra-ui/react";
 import { FadeIn } from "../ui/motion";
+import { Btn } from "../ui/controls";
 import { IconArrow } from "../ui/icons";
 import { navigate } from "../ui/router";
 
@@ -44,7 +45,7 @@ export function Distress() {
                 <Box key={r.name} bg="surface" borderWidth="1px" borderColor="border" rounded="l3" p="5">
                   <Stack gap="1">
                     <Text fontWeight="semibold">{r.name}</Text>
-                    <Text fontSize="xl" fontWeight="bold" color="accent.emphasis" letterSpacing="0.01em">
+                    <Text fontSize="xl" fontWeight="bold" color="fg" letterSpacing="0.01em">
                       {r.contact}
                     </Text>
                     <Text fontSize="sm" color="fg.muted">
@@ -56,12 +57,12 @@ export function Distress() {
             </Stack>
 
             <HStack>
-              <Button variant="ghost" color="fg.muted" onClick={() => navigate("home")}>
+              <Btn ghost onClick={() => navigate("home")}>
                 <Box as="span" transform="rotate(180deg)" display="inline-flex">
                   <IconArrow boxSize="4" />
                 </Box>
                 Revenir
-              </Button>
+              </Btn>
               <Text ml="auto" fontSize="xs" color="fg.subtle">
                 Rien de ce que tu écris ici n'est partagé.
               </Text>

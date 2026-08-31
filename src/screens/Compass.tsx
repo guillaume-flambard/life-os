@@ -1,4 +1,4 @@
-import { Box, Button, HStack, Input, Stack, Text, Wrap } from "@chakra-ui/react";
+import { Box, HStack, Stack, Text, Wrap } from "@chakra-ui/react";
 import { useState } from "react";
 import type { Ctx } from "../App";
 import {
@@ -16,16 +16,12 @@ import {
 } from "../lib/ipc";
 import { FadeIn, MotionBox, staggerContainer, staggerItem } from "../ui/motion";
 import { IconPlus, IconSparkle } from "../ui/icons";
+import { Btn, Field } from "../ui/controls";
 import { Card, FieldLabel, PageHeader } from "../ui/primitives";
 import { Async, EmptyState, humanError, useAsync } from "../ui/states";
 import { toaster } from "../ui/toaster";
 
 const PRIORITY_ORDER: Priority[] = ["must", "should", "may"];
-const PRIORITY_COLOR: Record<Priority, string> = {
-  must: "red",
-  should: "teal",
-  may: "gray",
-};
 
 export function Compass({ ctx }: { ctx: Ctx }) {
   const domains = useAsync(() => listDomains(), []);
@@ -68,16 +64,14 @@ export function Compass({ ctx }: { ctx: Ctx }) {
         <Stack gap="5">
           <Wrap gap="2">
             {list.map((d) => (
-              <Button
+              <button
                 key={d.id}
-                size="sm"
-                variant={current?.id === d.id ? "solid" : "outline"}
-                colorPalette={current?.id === d.id ? "teal" : "gray"}
-                rounded="full"
+                type="button"
+                className={"ui-chip" + (current?.id === d.id ? " on" : "")}
                 onClick={() => setActive(d)}
               >
                 {d.name}
-              </Button>
+              </button>
             ))}
             <AddDomainPopoverButton
               onAdd={async (name) => {
@@ -195,28 +189,25 @@ function IntentionRow({
           </Text>
         )}
       </Stack>
-      <Button
-        size="xs"
-        variant="subtle"
-        colorPalette={PRIORITY_COLOR[it.priority]}
-        rounded="full"
+      <button
+        type="button"
+        className={"ui-chip" + (it.priority === "must" ? " on" : "")}
         onClick={cyclePriority}
-        loading={saving}
-        flexShrink="0"
+        disabled={saving}
+        style={{ flexShrink: 0 }}
       >
         {PRIORITY_LABELS[it.priority]}
-      </Button>
-      <Button
-        size="xs"
-        variant="ghost"
-        color="fg.subtle"
+      </button>
+      <Btn
+        sm
+        ghost
         onClick={async () => {
           await archiveIntention(it.id);
           onChange();
         }}
       >
         ✕
-      </Button>
+      </Btn>
     </HStack>
   );
 }
@@ -266,20 +257,19 @@ function AddIntention({ domainId, onAdded }: { domainId: string; onAdded: () => 
   return (
     <Stack gap="3" pt="1">
       <HStack>
-        <Input
+        <Field
           placeholder="Ce qui compte pour toi ici…"
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && save()}
-          bg="surface"
         />
-        <Button variant="ghost" onClick={assist} loading={busy === "ai"} disabled={!text.trim()} title="Reformuler">
+        <Btn ghost onClick={assist} loading={busy === "ai"} disabled={!text.trim()} title="Reformuler">
           <IconSparkle boxSize="4" />
-        </Button>
+        </Btn>
       </HStack>
       {reform && (
         <FadeIn>
-          <Box bg="accent.subtle" rounded="l2" px="3.5" py="2.5">
+          <Box bg="surface.muted" rounded="l2" px="3.5" py="2.5">
             <Text fontSize="sm" color="fg.muted">
               Quand <b>{reform.situation}</b>, je <b>{reform.action}</b>.
             </Text>
@@ -291,22 +281,22 @@ function AddIntention({ domainId, onAdded }: { domainId: string; onAdded: () => 
           <FieldLabel>Importance</FieldLabel>
           <Wrap gap="1.5">
             {PRIORITY_ORDER.map((p) => (
-              <Button
+              <button
                 key={p}
-                size="xs"
-                variant={priority === p ? "solid" : "outline"}
-                colorPalette={priority === p ? PRIORITY_COLOR[p] : "gray"}
-                rounded="full"
+                type="button"
+                className={"ui-chip" + (priority === p ? " on" : "")}
                 onClick={() => setPriority(p)}
               >
                 {PRIORITY_LABELS[p]}
-              </Button>
+              </button>
             ))}
           </Wrap>
         </Stack>
-        <Button alignSelf="end" onClick={save} loading={busy === "save"} disabled={!text.trim()} colorPalette="teal">
-          <IconPlus boxSize="4" /> Ajouter
-        </Button>
+        <Box alignSelf="end">
+          <Btn primary onClick={save} loading={busy === "save"} disabled={!text.trim()}>
+            <IconPlus boxSize="4" /> Ajouter
+          </Btn>
+        </Box>
       </HStack>
     </Stack>
   );
@@ -323,16 +313,15 @@ function AddDomainInline({
 }) {
   return (
     <HStack maxW="sm">
-      <Input
+      <Field
         placeholder="Ex. Santé"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && onAdd()}
-        bg="surface"
       />
-      <Button onClick={onAdd} disabled={!value.trim()} colorPalette="teal">
+      <Btn primary onClick={onAdd} disabled={!value.trim()}>
         Ajouter
-      </Button>
+      </Btn>
     </HStack>
   );
 }
@@ -342,14 +331,13 @@ function AddDomainPopoverButton({ onAdd }: { onAdd: (name: string) => void }) {
   const [name, setName] = useState("");
   if (!open)
     return (
-      <Button size="sm" variant="ghost" color="fg.muted" rounded="full" onClick={() => setOpen(true)}>
+      <Btn sm ghost onClick={() => setOpen(true)}>
         <IconPlus boxSize="4" /> Pan
-      </Button>
+      </Btn>
     );
   return (
     <HStack>
-      <Input
-        size="sm"
+      <Field
         autoFocus
         placeholder="Nom du pan"
         value={name}
@@ -362,12 +350,11 @@ function AddDomainPopoverButton({ onAdd }: { onAdd: (name: string) => void }) {
           }
           if (e.key === "Escape") setOpen(false);
         }}
-        bg="surface"
-        w="36"
+        style={{ width: "140px" }}
       />
-      <Button
-        size="sm"
-        colorPalette="teal"
+      <Btn
+        sm
+        primary
         onClick={() => {
           if (name.trim()) {
             onAdd(name.trim());
@@ -377,7 +364,7 @@ function AddDomainPopoverButton({ onAdd }: { onAdd: (name: string) => void }) {
         }}
       >
         OK
-      </Button>
+      </Btn>
     </HStack>
   );
 }

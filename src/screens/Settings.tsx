@@ -1,4 +1,4 @@
-import { Badge, Box, Button, HStack, Input, Stack, Text } from "@chakra-ui/react";
+import { Box, HStack, Stack, Text } from "@chakra-ui/react";
 import { useState } from "react";
 import type { Ctx } from "../App";
 import {
@@ -10,7 +10,8 @@ import {
   type Health,
 } from "../lib/ipc";
 import { useColorMode } from "../provider";
-import { Card, FieldLabel, PageHeader, SectionTitle } from "../ui/primitives";
+import { Btn, Field } from "../ui/controls";
+import { Card, FieldLabel, PageHeader, Pill, SectionTitle } from "../ui/primitives";
 import { Async, useAsync, humanError } from "../ui/states";
 import { toaster } from "../ui/toaster";
 
@@ -45,15 +46,14 @@ export function Settings({ ctx }: { ctx: Ctx }) {
             </Stack>
             <HStack gap="1.5">
               {(["light", "dark", "system"] as const).map((t) => (
-                <Button
+                <button
                   key={t}
-                  size="xs"
-                  variant={setting === t ? "solid" : "outline"}
-                  colorPalette="teal"
+                  type="button"
+                  className={"ui-chip" + (setting === t ? " on" : "")}
                   onClick={() => set(t)}
                 >
                   {t === "light" ? "Clair" : t === "dark" ? "Sombre" : "Système"}
-                </Button>
+                </button>
               ))}
             </HStack>
           </HStack>
@@ -69,9 +69,9 @@ export function Settings({ ctx }: { ctx: Ctx }) {
             <Text fontSize="sm" flex="1">
               {ctx.mode === "expert" ? "Mode expert" : "Mode simple"}
             </Text>
-            <Button size="sm" variant="subtle" colorPalette="teal" onClick={() => ctx.setMode(ctx.mode === "expert" ? "human" : "expert")}>
+            <Btn sm subtle onClick={() => ctx.setMode(ctx.mode === "expert" ? "human" : "expert")}>
               Passer en {ctx.mode === "expert" ? "simple" : "expert"}
-            </Button>
+            </Btn>
           </HStack>
         </Card>
       </Box>
@@ -105,12 +105,8 @@ function HealthCard({
         <Text fontSize="sm" fontWeight="medium" flex="1">
           {label}
         </Text>
-        <Async state={state} loading={<Badge variant="subtle">…</Badge>}>
-          {(h) => (
-            <Badge colorPalette={h.ok ? "green" : "gray"} variant="subtle">
-              {h.ok ? okText : offText}
-            </Badge>
-          )}
+        <Async state={state} loading={<Pill>…</Pill>}>
+          {(h) => <Pill active={h.ok}>{h.ok ? okText : offText}</Pill>}
         </Async>
       </HStack>
     </Card>
@@ -138,9 +134,9 @@ function ExportCard() {
           <Text fontSize="sm" fontWeight="medium">Exporter</Text>
           <Text fontSize="xs" color="fg.muted">Tout ton contenu en texte lisible, à toi.</Text>
         </Stack>
-        <Button size="sm" variant="subtle" onClick={run} loading={busy}>
+        <Btn sm subtle onClick={run} loading={busy}>
           Copier en Markdown
-        </Button>
+        </Btn>
       </HStack>
     </Card>
   );
@@ -172,16 +168,15 @@ function SyncCard() {
           </Text>
         </Stack>
         <HStack>
-          <Input
+          <Field
             type="password"
             placeholder="Phrase secrète (min. 6 caractères)"
             value={pass}
             onChange={(e) => setPass(e.target.value)}
-            bg="surface"
           />
-          <Button size="sm" variant="subtle" onClick={run} loading={busy} disabled={pass.length < 6}>
+          <Btn sm subtle onClick={run} loading={busy} disabled={pass.length < 6}>
             Créer
-          </Button>
+          </Btn>
         </HStack>
       </Stack>
     </Card>
@@ -209,10 +204,10 @@ function EraseCard() {
   };
 
   return (
-    <Card borderColor="red.200" _dark={{ borderColor: "red.800" }}>
+    <Card>
       <Stack gap="3">
         <Stack gap="0.5">
-          <Text fontSize="sm" fontWeight="medium" color="red.500">
+          <Text fontSize="sm" fontWeight="medium" color="fg">
             Tout effacer
           </Text>
           <Text fontSize="xs" color="fg.muted">
@@ -220,22 +215,24 @@ function EraseCard() {
           </Text>
         </Stack>
         {!open ? (
-          <Button size="sm" variant="outline" colorPalette="red" alignSelf="start" onClick={() => setOpen(true)}>
-            Effacer mes données
-          </Button>
+          <Box>
+            <Btn sm danger onClick={() => setOpen(true)}>
+              Effacer mes données
+            </Btn>
+          </Box>
         ) : (
           <Stack gap="2">
             <FieldLabel>
               Écris <b>{WORD}</b> pour confirmer
             </FieldLabel>
             <HStack>
-              <Input value={confirm} onChange={(e) => setConfirm(e.target.value)} bg="surface" placeholder={WORD} />
-              <Button size="sm" variant="ghost" onClick={() => { setOpen(false); setConfirm(""); }}>
+              <Field value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder={WORD} />
+              <Btn sm ghost onClick={() => { setOpen(false); setConfirm(""); }}>
                 Annuler
-              </Button>
-              <Button size="sm" colorPalette="red" onClick={run} loading={busy} disabled={confirm !== WORD}>
+              </Btn>
+              <Btn sm danger primary onClick={run} loading={busy} disabled={confirm !== WORD}>
                 Effacer
-              </Button>
+              </Btn>
             </HStack>
           </Stack>
         )}

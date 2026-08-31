@@ -537,7 +537,7 @@ function ReformulateInline({
         <HStack gap="2.5" py="1">
           <MotionBox
             as="span"
-            color="accent"
+            color="fg.subtle"
             display="inline-flex"
             animate={{ opacity: [0.55, 1, 0.55], scale: [0.92, 1, 0.92] }}
             transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}

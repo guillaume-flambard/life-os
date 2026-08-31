@@ -1,4 +1,4 @@
-import { Box, Button, HStack, Stack, Text, Textarea } from "@chakra-ui/react";
+import { Box, HStack, Stack, Text } from "@chakra-ui/react";
 import { useState } from "react";
 import type { Ctx } from "../App";
 import {
@@ -10,6 +10,7 @@ import {
 } from "../lib/ipc";
 import { FadeIn, MotionBox, staggerContainer, staggerItem } from "../ui/motion";
 import { IconCheck } from "../ui/icons";
+import { Btn, Area } from "../ui/controls";
 import { Card, PageHeader, SectionTitle } from "../ui/primitives";
 import { Async, EmptyState, humanError, useAsync } from "../ui/states";
 import { toaster } from "../ui/toaster";
@@ -78,26 +79,26 @@ export function Review({ ctx }: { ctx: Ctx }) {
         <SectionTitle>Écrire pour faire le point</SectionTitle>
         <Card>
           <Stack gap="3">
-            <Textarea
-              autoresize
-              minH="28"
+            <Area
+              rows={3}
               placeholder="Sans filtre. Ce qui vient."
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              bg="surface"
             />
             <HStack>
               {savedNote && (
                 <FadeIn>
-                  <HStack gap="1.5" color="accent.emphasis">
+                  <HStack gap="1.5" color="fg.muted">
                     <IconCheck boxSize="4" />
                     <Text fontSize="sm">Gardé.</Text>
                   </HStack>
                 </FadeIn>
               )}
-              <Button ml="auto" onClick={saveReflection} loading={savingNote} disabled={!note.trim()} colorPalette="teal">
-                Garder ce point
-              </Button>
+              <Box ml="auto">
+                <Btn primary onClick={saveReflection} loading={savingNote} disabled={!note.trim()}>
+                  Garder ce point
+                </Btn>
+              </Box>
             </HStack>
           </Stack>
         </Card>
@@ -141,9 +142,11 @@ function ProposedRow({ decision, onApplied }: { decision: DecisionFull; onApplie
             </Text>
           )}
         </Stack>
-        <Button size="sm" colorPalette="teal" onClick={apply} loading={busy} flexShrink="0">
-          Intégrer
-        </Button>
+        <Box flexShrink="0">
+          <Btn sm primary onClick={apply} loading={busy}>
+            Intégrer
+          </Btn>
+        </Box>
       </HStack>
     </Card>
   );

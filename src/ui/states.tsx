@@ -1,6 +1,7 @@
-import { Box, Button, Center, Spinner, Stack, Text } from "@chakra-ui/react";
+import { Box, Center, Spinner, Stack, Text } from "@chakra-ui/react";
 import { useCallback, useEffect, useState } from "react";
 import { isApiError } from "../lib/ipc";
+import { Btn } from "./controls";
 import { FadeIn } from "./motion";
 
 // --- Async state helper ---------------------------------------------------
@@ -85,9 +86,11 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry?: ()
             {message}
           </Text>
           {onRetry && (
-            <Button size="sm" variant="subtle" onClick={onRetry} mt="1">
-              Réessayer
-            </Button>
+            <Box mt="1">
+              <Btn sm subtle onClick={onRetry}>
+                Réessayer
+              </Btn>
+            </Box>
           )}
         </Stack>
       </Center>

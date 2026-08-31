@@ -1,0 +1,162 @@
+/* Bespoke app components — hand-written, monochrome ChatGPT/Claude register.
+   Layout still uses Chakra Box/Stack; these classes replace the pieces that
+   carried a component-library look: buttons, fields, cards, pills. Driven by
+   the app's Chakra CSS variables so light/dark stay in sync. */
+
+/* buttons */
+.ui-btn {
+  appearance: none;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.2;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border-radius: 999px;
+  border: 1px solid var(--chakra-colors-border);
+  background: transparent;
+  color: var(--chakra-colors-fg);
+  padding: 9px 16px;
+  transition: background 0.14s, border-color 0.14s, opacity 0.14s, transform 0.14s;
+  white-space: nowrap;
+}
+.ui-btn:hover { background: var(--chakra-colors-surface-muted); }
+.ui-btn:focus-visible { outline: 2px solid var(--chakra-colors-fg); outline-offset: 2px; }
+.ui-btn:disabled { opacity: 0.4; cursor: default; }
+.ui-btn:disabled:hover { background: transparent; }
+
+.ui-btn.primary {
+  background: var(--chakra-colors-fg);
+  color: var(--chakra-colors-canvas);
+  border-color: var(--chakra-colors-fg);
+}
+.ui-btn.primary:hover { background: var(--chakra-colors-fg); opacity: 0.88; }
+
+.ui-btn.ghost { border-color: transparent; color: var(--chakra-colors-fg-muted); }
+.ui-btn.ghost:hover { background: var(--chakra-colors-surface-muted); color: var(--chakra-colors-fg); }
+
+.ui-btn.subtle { border-color: transparent; background: var(--chakra-colors-surface-muted); }
+.ui-btn.subtle:hover { background: var(--chakra-colors-border); }
+
+.ui-btn.danger { color: #c0392b; border-color: color-mix(in srgb, #c0392b 35%, var(--chakra-colors-border)); }
+.ui-btn.danger:hover { background: color-mix(in srgb, #c0392b 8%, transparent); }
+.ui-btn.danger.primary { background: #c0392b; color: #fff; border-color: #c0392b; }
+
+.ui-btn.sm { font-size: 13px; padding: 6px 12px; }
+.ui-btn.block { width: 100%; }
+
+.ui-spin {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, currentColor 30%, transparent);
+  border-top-color: currentColor;
+  animation: ui-spin 0.7s linear infinite;
+}
+@keyframes ui-spin { to { transform: rotate(360deg); } }
+
+/* selectable chip (toggle) */
+.ui-chip {
+  appearance: none;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 999px;
+  border: 1px solid var(--chakra-colors-border);
+  background: transparent;
+  color: var(--chakra-colors-fg);
+  padding: 6px 13px;
+  transition: background 0.14s, border-color 0.14s;
+}
+.ui-chip:hover { background: var(--chakra-colors-surface-muted); }
+.ui-chip.on {
+  background: var(--chakra-colors-fg);
+  color: var(--chakra-colors-canvas);
+  border-color: var(--chakra-colors-fg);
+}
+
+/* fields */
+.ui-field {
+  width: 100%;
+  font: inherit;
+  font-size: 15px;
+  color: var(--chakra-colors-fg);
+  background: var(--chakra-colors-surface);
+  border: 1px solid var(--chakra-colors-border);
+  border-radius: 12px;
+  padding: 10px 13px;
+  outline: none;
+  transition: border-color 0.15s;
+  resize: none;
+}
+.ui-field::placeholder { color: var(--chakra-colors-fg-subtle); }
+.ui-field:focus { border-color: var(--chakra-colors-fg-muted); }
+
+/* card (padding comes from the component so it stays overridable) */
+.ui-card {
+  background: var(--chakra-colors-surface);
+  border: 1px solid var(--chakra-colors-border);
+  border-radius: 16px;
+}
+
+/* round check toggle */
+.ui-check {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1.5px solid var(--chakra-colors-border);
+  background: transparent;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: var(--chakra-colors-canvas);
+  transition: background 0.2s, border-color 0.2s;
+}
+.ui-check:hover { border-color: var(--chakra-colors-fg-muted); }
+.ui-check.on { background: var(--chakra-colors-fg); border-color: var(--chakra-colors-fg); }
+
+/* pill / status */
+.ui-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--chakra-colors-surface-muted);
+  color: var(--chakra-colors-fg-muted);
+}
+.ui-pill.active {
+  background: var(--chakra-colors-fg);
+  color: var(--chakra-colors-canvas);
+}
+
+/* page + section headers */
+.ui-h1 {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--chakra-colors-fg);
+}
+.ui-sub {
+  font-size: 15.5px;
+  line-height: 1.5;
+  color: var(--chakra-colors-fg-muted);
+}
+.ui-section-title {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--chakra-colors-fg);
+}
+.ui-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--chakra-colors-fg-muted);
+}

@@ -1,4 +1,4 @@
-import { Box, Button, HStack, Stack, Text, Textarea } from "@chakra-ui/react";
+import { Box, HStack, Stack, Text } from "@chakra-ui/react";
 import { useState } from "react";
 import type { Ctx } from "../App";
 import {
@@ -11,6 +11,7 @@ import {
 } from "../lib/ipc";
 import { FadeIn, MotionBox, staggerContainer, staggerItem } from "../ui/motion";
 import { IconCheck } from "../ui/icons";
+import { Btn, Area } from "../ui/controls";
 import { Card, PageHeader, SectionTitle } from "../ui/primitives";
 import { Async, EmptyState, humanError, useAsync } from "../ui/states";
 import { toaster } from "../ui/toaster";
@@ -51,21 +52,19 @@ export function Daily({ ctx }: { ctx: Ctx }) {
       <Card>
         <Stack gap="3">
           <Text fontWeight="semibold">Qu'est-ce qui te passe par la tête ?</Text>
-          <Textarea
-            autoresize
-            minH="20"
+          <Area
+            rows={2}
             placeholder="Une pensée, un ressenti, un truc à ne pas oublier…"
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            bg="surface"
           />
           <HStack>
             <Text fontSize="xs" color="fg.subtle" mr="auto">
               Reste ici, chiffré. Pour toi seul·e.
             </Text>
-            <Button onClick={save} loading={saving} disabled={!note.trim()} colorPalette="teal">
+            <Btn primary onClick={save} loading={saving} disabled={!note.trim()}>
               Noter
-            </Button>
+            </Btn>
           </HStack>
         </Stack>
       </Card>
@@ -147,19 +146,9 @@ function StepRow({ story, onDone }: { story: OpenStory; onDone: () => void }) {
         opacity={done ? 0.5 : 1}
         transition="opacity 0.3s"
       >
-        <Button
-          size="xs"
-          variant={done ? "solid" : "outline"}
-          colorPalette="teal"
-          rounded="full"
-          w="7"
-          h="7"
-          p="0"
-          onClick={complete}
-          flexShrink="0"
-        >
+        <button type="button" className={"ui-check" + (done ? " on" : "")} onClick={complete}>
           {done && <IconCheck boxSize="4" />}
-        </Button>
+        </button>
         <Stack gap="0.5" flex="1" minW="0">
           <Text fontSize="sm" fontWeight="medium" textDecoration={done ? "line-through" : undefined}>
             {story.title}

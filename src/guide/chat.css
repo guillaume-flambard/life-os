@@ -150,6 +150,132 @@
   transform: scale(1.05);
 }
 
+/* --- reasoning timeline (monochrome, in the thread) --- */
+.rs {
+  align-self: stretch;
+  animation: cv-rise 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.rs-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: none;
+  border: 0;
+  padding: 2px;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+.rs-head.clickable { cursor: pointer; }
+.rs-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--chakra-colors-fg-muted);
+  flex-shrink: 0;
+  animation: rs-breathe 1.4s ease-in-out infinite;
+}
+.rs-spark { color: var(--chakra-colors-fg-subtle); flex-shrink: 0; display: inline-flex; }
+.rs-lead {
+  font-size: 14px;
+  font-weight: 500;
+  background-image: linear-gradient(100deg,
+    var(--chakra-colors-fg-subtle) 30%, var(--chakra-colors-fg) 50%, var(--chakra-colors-fg-subtle) 70%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: rs-sweep 2.1s linear infinite;
+}
+.rs-lead.rest {
+  animation: none;
+  -webkit-text-fill-color: var(--chakra-colors-fg-muted);
+  color: var(--chakra-colors-fg-muted);
+}
+.rs-timer {
+  font-size: 12.5px;
+  color: var(--chakra-colors-fg-subtle);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+.rs-chev {
+  margin-left: 4px;
+  color: var(--chakra-colors-fg-subtle);
+  display: inline-flex;
+  transition: transform 0.25s;
+}
+.rs-chev.open { transform: rotate(180deg); }
+
+.rs-steps {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0 0 0 6px;
+  position: relative;
+  overflow: hidden;
+  transition: max-height 0.4s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s ease;
+}
+.rs-steps::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 11px;
+  bottom: 11px;
+  width: 1.5px;
+  background: var(--chakra-colors-border);
+}
+.rs-steps.folded { max-height: 0 !important; opacity: 0; margin-top: 0; }
+
+.rs-step {
+  position: relative;
+  padding: 5px 0 5px 22px;
+}
+.rs-node {
+  position: absolute;
+  left: 0;
+  top: 9px;
+  width: 13px;
+  height: 13px;
+  display: grid;
+  place-items: center;
+}
+.rs-node b {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--chakra-colors-fg-subtle);
+  transition: all 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.rs-step.active .rs-node b {
+  width: 8px;
+  height: 8px;
+  background: var(--chakra-colors-canvas);
+  border: 1.5px solid var(--chakra-colors-fg);
+  box-sizing: border-box;
+  animation: rs-nodepulse 1.4s ease-in-out infinite;
+}
+.rs-text {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--chakra-colors-fg-muted);
+  transition: color 0.5s;
+}
+.rs-step.active .rs-text { color: var(--chakra-colors-fg); }
+.rs-caret {
+  display: inline-block;
+  width: 0.5ch;
+  color: var(--chakra-colors-fg-muted);
+  animation: cv-blink 1.05s step-end infinite;
+}
+
+@keyframes rs-breathe { 0%, 100% { opacity: 0.5; transform: scale(0.9); } 50% { opacity: 1; transform: scale(1); } }
+@keyframes rs-sweep { 0% { background-position: 130% 0; } 100% { background-position: -30% 0; } }
+@keyframes rs-nodepulse {
+  0%, 100% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--chakra-colors-fg) 14%, transparent); }
+  50% { box-shadow: 0 0 0 6px transparent; }
+}
+@keyframes cv-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
 @keyframes cv-rise {
   from { opacity: 0; transform: translateY(7px); }
   to { opacity: 1; transform: none; }

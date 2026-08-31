@@ -1,4 +1,5 @@
-import { Box, Button, Collapsible, HStack, Spinner, Stack, Text } from "@chakra-ui/react";
+import { Box, Collapsible, HStack, Spinner, Stack, Text } from "@chakra-ui/react";
+import { Btn } from "../ui/controls";
 import { useState } from "react";
 import type { Ctx } from "../App";
 import {
@@ -45,9 +46,9 @@ export function Carnet({ ctx }: { ctx: Ctx }) {
               title="Ton carnet est vide"
               hint="Chaque décision que tu explores atterrit ici, avec son petit pas."
               action={
-                <Button colorPalette="teal" onClick={() => navigate("home")}>
+                <Btn primary onClick={() => navigate("home")}>
                   <IconPlus boxSize="4" /> Explorer une décision
-                </Button>
+                </Btn>
               }
             />
           ) : false
