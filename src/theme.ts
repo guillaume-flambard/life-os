@@ -1,8 +1,8 @@
 import { createSystem, defaultConfig, defineConfig } from "@chakra-ui/react";
 
-// Life OS design system — calm, focused, "Claude Code / ChatGPT" register.
-// A quiet neutral canvas with one deep-teal accent (the compass needle).
-// Everything reads through semantic tokens so light/dark stay in lockstep.
+// Design system tuned to the register the user asks for — ChatGPT / Claude /
+// Perplexity: clean, cool, near-monochrome, sans-serif, with a single restrained
+// teal accent used only on interactive affordances. No warm paper, no serif.
 
 const config = defineConfig({
   theme: {
@@ -10,96 +10,89 @@ const config = defineConfig({
       fonts: {
         heading: {
           value:
-            'ui-sans-serif, -apple-system, "Segoe UI", Inter, system-ui, sans-serif',
+            '-apple-system, "SF Pro Text", "Segoe UI", Inter, ui-sans-serif, system-ui, sans-serif',
         },
         body: {
           value:
-            'ui-sans-serif, -apple-system, "Segoe UI", Inter, system-ui, sans-serif',
+            '-apple-system, "SF Pro Text", "Segoe UI", Inter, ui-sans-serif, system-ui, sans-serif',
         },
         mono: {
           value:
             'ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace',
         },
-        // Native serif — New York on Apple, Georgia elsewhere. Offline, no bundle.
-        serif: {
-          value: 'ui-serif, "New York", Georgia, "Times New Roman", serif',
-        },
       },
       colors: {
-        // Deep-teal brand ramp (the needle).
-        teal: {
-          50: { value: "#eafaf4" },
-          100: { value: "#c9f0e1" },
-          200: { value: "#98e0c8" },
-          300: { value: "#5fc9a8" },
-          400: { value: "#33ac89" },
-          500: { value: "#237a61" },
-          600: { value: "#1c6650" },
-          700: { value: "#185849" },
-          800: { value: "#12463a" },
-          900: { value: "#0d362d" },
+        // Cool neutral gray ramp (the whole UI lives here).
+        gray: {
+          50: { value: "#fafafa" },
+          100: { value: "#f4f4f5" },
+          200: { value: "#e9e9ec" },
+          300: { value: "#d6d6db" },
+          400: { value: "#9b9ba6" },
+          500: { value: "#6e6e7a" },
+          600: { value: "#52525b" },
+          700: { value: "#3a3a41" },
+          800: { value: "#26262a" },
+          850: { value: "#1f1f23" },
+          900: { value: "#161619" },
         },
-        // Warm-cool paper neutrals.
-        sand: {
-          50: { value: "#faf9f7" },
-          100: { value: "#f3f1ec" },
-          200: { value: "#e7e3db" },
-          300: { value: "#d4cfc4" },
-          400: { value: "#a8a294" },
-          500: { value: "#7c766a" },
-          600: { value: "#5b564d" },
-          700: { value: "#403c35" },
-          800: { value: "#292620" },
-          900: { value: "#1a1815" },
+        // A single restrained teal (Perplexity-ish), used sparingly.
+        teal: {
+          50: { value: "#f0fdfa" },
+          100: { value: "#ccfbef" },
+          200: { value: "#99f6e0" },
+          300: { value: "#5eead4" },
+          400: { value: "#2dd4bf" },
+          500: { value: "#14b8a6" },
+          600: { value: "#0d9488" },
+          700: { value: "#0f766e" },
+          800: { value: "#115e59" },
+          900: { value: "#134e4a" },
         },
       },
       radii: {
         l1: { value: "8px" },
         l2: { value: "12px" },
-        l3: { value: "16px" },
+        l3: { value: "18px" },
       },
     },
     semanticTokens: {
       colors: {
-        // Surfaces — a warm paper canvas (Claude/Perplexity register), white
-        // cards, and hairline warm-gray dividers.
         canvas: {
-          value: { base: "#fbfaf6", _dark: "{colors.sand.900}" },
+          value: { base: "#ffffff", _dark: "{colors.gray.900}" },
         },
         surface: {
-          value: { base: "#ffffff", _dark: "{colors.sand.800}" },
+          value: { base: "#ffffff", _dark: "{colors.gray.850}" },
         },
         "surface.muted": {
-          value: { base: "#f4f2ec", _dark: "{colors.sand.700}" },
+          value: { base: "{colors.gray.100}", _dark: "{colors.gray.800}" },
         },
         border: {
-          value: { base: "#e9e4da", _dark: "{colors.sand.700}" },
+          value: { base: "{colors.gray.200}", _dark: "{colors.gray.700}" },
         },
         "border.subtle": {
-          value: { base: "#f1ede4", _dark: "{colors.sand.800}" },
+          value: { base: "{colors.gray.100}", _dark: "{colors.gray.800}" },
         },
-        // Text
         fg: {
-          value: { base: "{colors.sand.800}", _dark: "{colors.sand.100}" },
+          value: { base: "#1a1a1e", _dark: "{colors.gray.100}" },
         },
         "fg.muted": {
-          value: { base: "{colors.sand.500}", _dark: "{colors.sand.400}" },
+          value: { base: "{colors.gray.500}", _dark: "{colors.gray.400}" },
         },
         "fg.subtle": {
-          value: { base: "{colors.sand.400}", _dark: "{colors.sand.500}" },
+          value: { base: "{colors.gray.400}", _dark: "{colors.gray.500}" },
         },
-        // Accent
         accent: {
-          value: { base: "{colors.teal.500}", _dark: "{colors.teal.400}" },
+          value: { base: "{colors.teal.600}", _dark: "{colors.teal.400}" },
         },
         "accent.fg": {
-          value: { base: "white", _dark: "{colors.sand.900}" },
+          value: { base: "white", _dark: "{colors.gray.900}" },
         },
         "accent.subtle": {
           value: { base: "{colors.teal.50}", _dark: "{colors.teal.900}" },
         },
         "accent.emphasis": {
-          value: { base: "{colors.teal.600}", _dark: "{colors.teal.300}" },
+          value: { base: "{colors.teal.700}", _dark: "{colors.teal.300}" },
         },
       },
     },
@@ -111,7 +104,6 @@ const config = defineConfig({
     body: {
       bg: "canvas",
       color: "fg",
-      fontFeatureSettings: '"cv02", "cv03", "cv04", "cv11"',
     },
     "*::selection": {
       bg: "accent.subtle",

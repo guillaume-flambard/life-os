@@ -51,15 +51,13 @@ function Echo({ text }: { text: string }) {
       maxW="82%"
     >
       <Box
-        bg="accent.subtle"
-        color="accent.emphasis"
+        bg="surface.muted"
+        color="fg"
         rounded="l3"
-        borderBottomRightRadius="sm"
         px="4"
         py="2.5"
         fontSize="15.5px"
         lineHeight="1.5"
-        fontWeight="medium"
       >
         {text}
       </Box>
@@ -85,38 +83,39 @@ function Choices({
       alignSelf="stretch"
     >
       <Wrap gap="2.5" justify="end">
-        {options.map((o) => (
-          <Button
-            key={o.value}
-            variant={o.tone === "accent" ? "solid" : "outline"}
-            colorPalette="teal"
-            size="lg"
-            rounded="full"
-            h="auto"
-            py="2.5"
-            px="5"
-            whiteSpace="normal"
-            textAlign="left"
-            fontWeight="medium"
-            borderColor={o.tone === "accent" ? undefined : "border"}
-            onClick={() => onPick(o.value, o.label)}
-            _hover={{ transform: "translateY(-1px)" }}
-            transition="transform 0.15s, border-color 0.15s"
-          >
-            <Stack gap="0" align="start">
-              <Text>{o.label}</Text>
-              {o.hint && (
-                <Text
-                  fontSize="xs"
-                  fontWeight="normal"
-                  color={o.tone === "accent" ? "whiteAlpha.800" : "fg.subtle"}
-                >
-                  {o.hint}
-                </Text>
-              )}
-            </Stack>
-          </Button>
-        ))}
+        {options.map((o) => {
+          const accent = o.tone === "accent";
+          return (
+            <Button
+              key={o.value}
+              variant={accent ? "solid" : "outline"}
+              colorPalette={accent ? "teal" : "gray"}
+              size="lg"
+              rounded="full"
+              h="auto"
+              py="2.5"
+              px="5"
+              whiteSpace="normal"
+              textAlign="left"
+              fontWeight="medium"
+              color={accent ? "accent.fg" : "fg"}
+              bg={accent ? "accent" : "transparent"}
+              borderColor={accent ? "accent" : "border"}
+              onClick={() => onPick(o.value, o.label)}
+              _hover={{ transform: "translateY(-1px)", bg: accent ? "accent.emphasis" : "surface.muted" }}
+              transition="transform 0.15s, background 0.15s, border-color 0.15s"
+            >
+              <Stack gap="0" align="start">
+                <Text>{o.label}</Text>
+                {o.hint && (
+                  <Text fontSize="xs" fontWeight="normal" color={accent ? "whiteAlpha.800" : "fg.subtle"}>
+                    {o.hint}
+                  </Text>
+                )}
+              </Stack>
+            </Button>
+          );
+        })}
       </Wrap>
     </MotionBox>
   );

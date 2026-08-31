@@ -54,7 +54,7 @@ export function Header({ ctx, revealed }: { ctx: Ctx; revealed: boolean }) {
       borderColor="border"
     >
       <NeedleMark />
-      <Text fontFamily="serif" fontWeight="500" letterSpacing="0.01em" fontSize="17px">
+      <Text fontWeight="600" letterSpacing="-0.01em" fontSize="15px">
         Life OS
       </Text>
 
