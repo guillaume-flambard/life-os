@@ -374,6 +374,12 @@ pub fn finalize(conn: &Connection, id: &str) -> Result<DecisionFull, ApiError> {
         params![id, now],
     )?;
     events::record(conn, "decision.proposed", "decision", id, None)?;
+    // Remember the decision for later recall / contradiction checks.
+    let mem = match &d.proposal {
+        Some(p) if !p.trim().is_empty() => format!("{} — {}", d.title, p),
+        _ => d.title.clone(),
+    };
+    let _ = crate::db::repo::memory::write_chunk(conn, &mem, "decision", Some(id));
     get_decision(conn, id)
 }
 

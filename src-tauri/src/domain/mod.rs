@@ -232,3 +232,14 @@ pub struct DeltaResolution {
     pub domain_id: Option<String>,
     pub target_intention_id: Option<String>,
 }
+
+// --- Memory ---------------------------------------------------------------
+
+/// One recalled memory item.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MemoryHit {
+    pub chunk_id: String,
+    pub content: String,
+    pub source_type: String,
+    pub source_id: Option<String>,
+}

@@ -18,8 +18,11 @@ import {
   decisionGenerateStory,
   listDomains,
   listIntentions,
+  memoryRecall,
+  contradictionCheck,
   isApiError,
   type DecisionDetail,
+  type MemoryHit,
 } from "../lib/ipc";
 
 // The guided decision flow (GROW-shaped), one focus at a time. The engine records
@@ -42,6 +45,38 @@ interface Session {
 }
 
 let session: Session | null = null;
+
+// Recalled history + an optional gentle question, fetched when a session opens.
+let ctx: { recall: MemoryHit[]; question: string | null } = { recall: [], question: null };
+
+async function loadContext(el: HTMLElement, title: string) {
+  ctx = { recall: [], question: null };
+  try {
+    ctx.recall = await memoryRecall(title, 4);
+  } catch {
+    /* keyword-only or no memory yet — silent */
+  }
+  try {
+    ctx.question = await contradictionCheck(title);
+  } catch {
+    /* no model / no tension — silent */
+  }
+  if (session && session.step === 0) renderStep(el);
+}
+
+function contextPanel(): string {
+  if (!ctx.recall.length && !ctx.question) return "";
+  return `
+    <div class="recall">
+      ${ctx.question ? `<div class="question"><strong>Une question me vient :</strong> ${esc(ctx.question)}</div>` : ""}
+      ${
+        ctx.recall.length
+          ? `<div class="muted">Ça me rappelle :</div>
+             <ul class="intentions">${ctx.recall.map((h) => `<li>${esc(h.content)}</li>`).join("")}</ul>`
+          : ""
+      }
+    </div>`;
+}
 
 function esc(s: string): string {
   return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]!));
@@ -93,6 +128,7 @@ function render(el: HTMLElement) {
         const d = await openDecision(value);
         session = { detail: await decisionDetail(d.id), step: 0 };
         render(el);
+        void loadContext(el, value); // recall + gentle question, non-blocking
       });
     });
     return;
@@ -151,7 +187,8 @@ function renderStep(el: HTMLElement) {
     case 0:
       b.innerHTML = `
         <p class="lead">Dis-moi où tu en es avec ça — la situation, ce que tu ressens.</p>
-        <textarea id="reality" rows="4" placeholder="Là, je…">${esc(d.emotional_context ?? "")}</textarea>`;
+        <textarea id="reality" rows="4" placeholder="Là, je…">${esc(d.emotional_context ?? "")}</textarea>
+        ${contextPanel()}`;
       break;
 
     case 1:

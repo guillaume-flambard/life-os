@@ -297,3 +297,18 @@ export const listProposedDecisions = () =>
   invoke<DecisionFull[]>("list_proposed_decisions");
 export const applyDecision = (decisionId: string, resolutions: DeltaResolution[]) =>
   invoke<DecisionFull>("apply_decision", { decisionId, resolutions });
+
+// --- Memory ---------------------------------------------------------------
+
+export interface MemoryHit {
+  chunk_id: string;
+  content: string;
+  source_type: string;
+  source_id: string | null;
+}
+
+export const memoryRecall = (query: string, k?: number) =>
+  invoke<MemoryHit[]>("memory_recall", { query, k: k ?? null });
+export const memoryBackfill = () => invoke<number>("memory_backfill");
+export const contradictionCheck = (text: string) =>
+  invoke<string | null>("contradiction_check", { text });

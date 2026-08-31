@@ -168,6 +168,12 @@ pub fn create_intention(
         params![id, domain_id, statement, situation, action, priority, now],
     )?;
     events::record(conn, "intention.created", "intention", &id, Some(statement))?;
+    // Remember it for later recall (keyword now, embedding on backfill).
+    let mem = match (situation, action) {
+        (Some(s), Some(a)) => format!("{statement} — quand {s}, je {a}"),
+        _ => statement.to_string(),
+    };
+    let _ = crate::db::repo::memory::write_chunk(conn, &mem, "intention", Some(&id));
     Ok(Intention {
         id,
         domain_id: domain_id.to_string(),

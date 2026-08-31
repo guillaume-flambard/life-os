@@ -127,3 +127,12 @@ select { border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; ba
 .nav .ghost { margin-left: auto; color: var(--muted); }
 .detail { margin-top: 10px; }
 .detail p { margin: 6px 0; }
+
+/* Recalled memory + gentle question */
+.recall { margin-top: 16px; padding: 12px 14px; border-left: 3px solid var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); border-radius: 0 8px 8px 0; }
+.recall .question { margin-bottom: 8px; line-height: 1.45; }
+.recall ul { margin: 6px 0 0; }
+
+#reindex { border: 1px solid var(--line); background: none; color: var(--fg); border-radius: 8px; padding: 8px 14px; cursor: pointer; }
+#reindex:hover { background: var(--line); }
+#reindex:disabled { opacity: 0.5; cursor: default; }

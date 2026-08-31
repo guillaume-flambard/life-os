@@ -329,4 +329,56 @@ mod tests {
         );
         assert_eq!(decision::get_decision(&conn, &dec_id).unwrap().status, "proposed");
     }
+
+    fn unit_vec(idx: usize) -> Vec<f32> {
+        let mut v = vec![0.0f32; 768];
+        v[idx] = 1.0;
+        v
+    }
+
+    #[test]
+    fn memory_indexes_on_create_and_recalls_by_keyword_and_vector() {
+        use repo::{compass, memory};
+        register_vec();
+        let conn = Connection::open_in_memory().unwrap();
+        migrate(&conn).unwrap();
+
+        // 5.1 — creating an intention writes a chunk found by keyword search.
+        let dom = compass::create_domain(&conn, "Mes proches").unwrap().id;
+        compass::create_intention(&conn, &dom, "être présent pour mon frère", None, None, "must").unwrap();
+        let hits = memory::keyword_search(&conn, "frère", 5).unwrap();
+        assert_eq!(hits.len(), 1);
+        assert!(memory::fetch_hits(&conn, &hits).unwrap()[0].content.contains("frère"));
+
+        // 5.2 — vector KNN returns the nearest chunk for a query embedding.
+        let a = memory::write_chunk(&conn, "orienté axe 0", "note", Some("a")).unwrap();
+        let b = memory::write_chunk(&conn, "orienté axe 1", "note", Some("b")).unwrap();
+        memory::insert_vec(&conn, &a, &unit_vec(0)).unwrap();
+        memory::insert_vec(&conn, &b, &unit_vec(1)).unwrap();
+        let mut query = unit_vec(0);
+        query[1] = 0.1; // closest to `a`
+        let near = memory::semantic_search(&conn, &query, 2).unwrap();
+        assert_eq!(near.first().map(String::as_str), Some(a.as_str()));
+    }
+
+    #[test]
+    fn fusion_unions_both_searches_and_recency_breaks_ties() {
+        use repo::memory;
+        use std::collections::HashMap;
+        // A found only by keyword, B only by semantic — both rank 0, equal RRF score.
+        let kw = vec!["A".to_string()];
+        let sem = vec!["B".to_string()];
+        let mut rec = HashMap::new();
+        rec.insert("A".to_string(), 1i64);
+        rec.insert("B".to_string(), 2i64); // B is newer
+        let fused = memory::fuse(&kw, &sem, &rec);
+        assert_eq!(fused, vec!["B".to_string(), "A".to_string()]); // union, newer first on tie
+    }
+
+    #[tokio::test]
+    async fn contradiction_is_silent_without_related_history() {
+        // No related history → no model call, no question (FR10).
+        let ai = crate::ai::Ollama::from_env();
+        assert!(ai.contradiction_question("changer de job", &[]).await.unwrap().is_none());
+    }
 }

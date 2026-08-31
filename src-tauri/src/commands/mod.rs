@@ -2,11 +2,11 @@
 //! lock the connection; AI commands are async and hit localhost Ollama only.
 
 use crate::ai::Ollama;
-use crate::db::repo::{compass, decision, review};
+use crate::db::repo::{compass, decision, memory, review};
 use crate::db::{repo, Db};
 use crate::domain::{
     AlignmentNote, ApiError, Decision, DecisionDetail, DecisionFull, DecisionOption, Delta,
-    DeltaInput, DeltaResolution, DeltaRow, Domain, Health, Intention, OptionSuggestions,
+    DeltaInput, DeltaResolution, DeltaRow, Domain, Health, Intention, MemoryHit, OptionSuggestions,
     Reformulation, Review, ReviewItem, StoryRow, StorySuggestion,
 };
 use tauri::State;
@@ -348,4 +348,86 @@ pub fn apply_decision(
 ) -> Result<DecisionFull, ApiError> {
     let conn = db.0.lock().unwrap();
     decision::apply_decision(&conn, &decision_id, &resolutions)
+}
+
+// --- Memory (hybrid recall + contradiction) -------------------------------
+
+// The DB Mutex guard is never held across an await: sync read → await embed →
+// sync search, each in its own scope.
+
+#[tauri::command]
+pub async fn memory_recall(
+    db: State<'_, Db>,
+    ai: State<'_, Ollama>,
+    query: String,
+    k: Option<i64>,
+) -> Result<Vec<MemoryHit>, ApiError> {
+    let k = k.unwrap_or(5).clamp(1, 20);
+    let kw = {
+        let conn = db.0.lock().unwrap();
+        memory::keyword_search(&conn, &query, k).map_err(ApiError::db)?
+    };
+    let sem = match ai.embed(&query).await {
+        Ok(v) => {
+            let conn = db.0.lock().unwrap();
+            memory::semantic_search(&conn, &v, k).unwrap_or_default()
+        }
+        Err(_) => vec![], // no embed model → keyword-only, still useful
+    };
+    let conn = db.0.lock().unwrap();
+    memory::fuse_and_fetch(&conn, &kw, &sem, k as usize).map_err(ApiError::db)
+}
+
+#[tauri::command]
+pub async fn memory_backfill(db: State<'_, Db>, ai: State<'_, Ollama>) -> Result<i64, ApiError> {
+    let pending = {
+        let conn = db.0.lock().unwrap();
+        memory::chunks_without_vec(&conn).map_err(ApiError::db)?
+    };
+    let mut n = 0;
+    for (id, content) in pending {
+        match ai.embed(&content).await {
+            Ok(v) => {
+                let conn = db.0.lock().unwrap();
+                memory::insert_vec(&conn, &id, &v).map_err(ApiError::db)?;
+                n += 1;
+            }
+            Err(e) => {
+                if n == 0 {
+                    return Err(ApiError::ai(format!("modèle d'embedding indisponible : {e}")));
+                }
+                break;
+            }
+        }
+    }
+    Ok(n)
+}
+
+#[tauri::command]
+pub async fn contradiction_check(
+    db: State<'_, Db>,
+    ai: State<'_, Ollama>,
+    text: String,
+) -> Result<Option<String>, ApiError> {
+    let kw = {
+        let conn = db.0.lock().unwrap();
+        memory::keyword_search(&conn, &text, 5).map_err(ApiError::db)?
+    };
+    let sem = match ai.embed(&text).await {
+        Ok(v) => {
+            let conn = db.0.lock().unwrap();
+            memory::semantic_search(&conn, &v, 5).unwrap_or_default()
+        }
+        Err(_) => vec![],
+    };
+    let related: Vec<String> = {
+        let conn = db.0.lock().unwrap();
+        memory::fuse_and_fetch(&conn, &kw, &sem, 3)
+            .map_err(ApiError::db)?
+            .into_iter()
+            .filter(|h| h.source_type == "decision" || h.source_type == "intention")
+            .map(|h| h.content)
+            .collect()
+    };
+    ai.contradiction_question(&text, &related).await.map_err(ApiError::ai)
 }

@@ -1,4 +1,4 @@
-import { getMode, setMode, type UiMode } from "../lib/ipc";
+import { getMode, setMode, memoryBackfill, isApiError, type UiMode } from "../lib/ipc";
 import { renderCompass } from "./compass";
 import { renderDecision } from "./decision";
 import { renderCarnet } from "./carnet";
@@ -54,12 +54,35 @@ export const ROUTES: Route[] = [
            <input type="checkbox" id="expert" ${mode === "expert" ? "checked" : ""} />
            Mode expert
          </label>
-         <p class="muted">Le mode expert révèle la mécanique interne. Par défaut, tout reste en mots simples.</p>`,
+         <p class="muted">Le mode expert révèle la mécanique interne. Par défaut, tout reste en mots simples.</p>
+         <hr style="border:none;border-top:1px solid var(--line);margin:24px 0" />
+         <button id="reindex">Rafraîchir la mémoire</button>
+         <p class="muted">Aide le compagnon à relier tes décisions et intentions. Nécessite le modèle local d'embeddings (<code>ollama pull embeddinggemma</code>).</p>
+         <div id="reindex-msg" class="msg" hidden></div>`,
       );
       el.querySelector<HTMLInputElement>("#expert")!.addEventListener("change", async (e) => {
         const next: UiMode = (e.target as HTMLInputElement).checked ? "expert" : "human";
         await setMode(next);
         window.dispatchEvent(new CustomEvent("mode-changed", { detail: next }));
+      });
+      const reindex = el.querySelector<HTMLButtonElement>("#reindex")!;
+      const rmsg = el.querySelector<HTMLDivElement>("#reindex-msg")!;
+      reindex.addEventListener("click", async () => {
+        reindex.disabled = true;
+        reindex.textContent = "En cours…";
+        try {
+          const n = await memoryBackfill();
+          rmsg.hidden = false;
+          rmsg.className = "msg info";
+          rmsg.textContent = n > 0 ? `Mémoire rafraîchie (${n} éléments).` : "Tout est déjà à jour.";
+        } catch (err) {
+          rmsg.hidden = false;
+          rmsg.className = "msg warn";
+          rmsg.textContent = isApiError(err) ? err.message : "Un souci est survenu.";
+        } finally {
+          reindex.disabled = false;
+          reindex.textContent = "Rafraîchir la mémoire";
+        }
       });
     },
   },

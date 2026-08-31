@@ -70,6 +70,9 @@ pub fn run() {
             commands::review_list,
             commands::list_proposed_decisions,
             commands::apply_decision,
+            commands::memory_recall,
+            commands::memory_backfill,
+            commands::contradiction_check,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Life OS");
