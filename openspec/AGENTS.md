@@ -30,20 +30,28 @@ edited directly; all changes flow through `changes/`.
 
 ## Delta format
 
-A change's `specs/<capability>/spec.md` declares operations on requirements:
-
-- `## ADDED Requirement: <name>` — a new requirement.
-- `## MODIFIED Requirement: <name>` — an amended requirement.
-- `## REMOVED Requirement: <name>` — a retired requirement.
-
-Every requirement carries at least one scenario:
+A change's `specs/<capability>/spec.md` declares operations on requirements,
+as section headers grouping the requirements they touch (this is the format
+the `openspec` CLI parses — the older `## ADDED Requirement: <name>` inline
+form is NOT recognized and fails validation):
 
 ```
+## ADDED Requirements
+
+### Requirement: <name>
+
+<body> — use RFC 2119 keywords UPPERCASE (SHALL, MUST); the validator
+warns otherwise.
+
 #### Scenario: <short name>
 - GIVEN <precondition>
 - WHEN <action>
 - THEN <observable outcome>
 ```
+
+- `## ADDED Requirements` — new requirements follow as `### Requirement:`.
+- `## MODIFIED Requirements` — amended requirements, same shape.
+- `## REMOVED Requirements` — retired requirements, same shape.
 
 ## Naming
 

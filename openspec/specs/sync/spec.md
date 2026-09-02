@@ -1,10 +1,16 @@
-# sync (delta)
+# sync Specification
 
-## ADDED Requirement: Imported snapshots are sanitized
+## Purpose
+
+Encrypted file-based snapshots the user exports and imports across devices: passphrase-only, sanitized on import, last-write-wins per row, events unioned.
+
+## Requirements
+
+### Requirement: Imported snapshots are sanitized
 
 Importing a snapshot never trusts its shape: only tables known to the merger are
 read, only columns that exist in the local schema are written, and timestamps
-must be valid RFC3339 values. The merge updates rows in place (upsert) instead
+MUST be valid RFC3339 values. The merge updates rows in place (upsert) instead
 of deleting-and-reinserting them, so derived indexes (full-text, vector) stay
 consistent.
 

@@ -1,8 +1,10 @@
 # secure-storage (delta)
 
-## ADDED Requirement: Mutations are atomic with their audit event
+## ADDED Requirements
 
-Every mutation writes its row change, its audit event, and any derived memory
+### Requirement: Mutations are atomic with their audit event
+
+Every mutation SHALL write its row change, its audit event, and any derived memory
 entry inside a single transaction: the process either sees all of them or
 none of them. Updating a row that does not exist (or is soft-deleted) fails
 with an explicit error instead of silently doing nothing and recording a

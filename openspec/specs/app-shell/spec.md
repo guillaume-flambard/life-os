@@ -1,8 +1,14 @@
-# app-shell (delta)
+# app-shell Specification
 
-## ADDED Requirement: Feedback is honest
+## Purpose
 
-Any action that persists something reports what actually happened. A failure is
+The app the user talks to and lives in: the conversation thread, its honest feedback, always-reachable safety, and the human-mode facade.
+
+## Requirements
+
+### Requirement: Feedback is honest
+
+Any action that persists something SHALL report what actually happened. A failure is
 never dressed up as a success: the user sees a real, human-worded error and the
 data is left in a consistent state they can retry from.
 
@@ -16,9 +22,9 @@ data is left in a consistent state they can retry from.
 - WHEN the write succeeds
 - THEN the app confirms it in plain language
 
-## ADDED Requirement: Safety resources are always reachable
+### Requirement: Safety resources are always reachable
 
-The path to distress resources does not depend on onboarding state. From any
+The path to distress resources SHALL not depend on onboarding state. From any
 screen, before or after the Guide, the user can reach local help.
 
 #### Scenario: Crisis before finishing onboarding
@@ -26,9 +32,9 @@ screen, before or after the Guide, the user can reach local help.
 - WHEN they look for help
 - THEN the "Besoin de parler" affordance is visible and opens the resources screen
 
-## ADDED Requirement: Human mode hides engine vocabulary
+### Requirement: Human mode hides engine vocabulary
 
-In human mode no engine term (spec, delta, requirement, review, QA) appears in
+In human mode no engine term (spec, delta, requirement, review, QA) SHALL appear in
 the interface. The detail-level control explains itself in everyday words.
 
 #### Scenario: Detail-level hint in human mode
