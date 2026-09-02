@@ -8,9 +8,14 @@ import {
   createIntention,
   decisionAddOption,
   decisionAddStory,
+  decisionChooseOption,
   decisionDetail,
   decisionFinalize,
+  decisionSetAlignment,
   decisionSetConfidence,
+  decisionSetDistance,
+  decisionSetPremortem,
+  decisionSetWhy,
   listDecisions,
   listDomains,
   listIntentions,
@@ -31,6 +36,7 @@ import { AlignFinder, OptionFinder, StepFinder } from "../guide/assists";
 import { useReasoningStream } from "../lib/reasoning";
 import { ReasoningPanel } from "../ui/Reasoning";
 import { MotionBox } from "../ui/motion";
+import { humanError } from "../ui/states";
 import { navigate } from "../ui/router";
 
 // The home IS the conversation. First run has no wizard: one warm line, then a
@@ -235,8 +241,12 @@ async function branchReview(flow: Flow, world: World) {
       multiline: true,
       cta: "Garder",
     });
-    await captureAdd(note, "reflection").catch(() => {});
-    await flow.say("Gardé. C'est déjà un pas de recul.");
+    try {
+      await captureAdd(note, "reflection");
+      await flow.say("Gardé. C'est déjà un pas de recul.");
+    } catch (e) {
+      await flow.say(`Je n'ai pas réussi à le garder : ${humanError(e)}. On réessaiera.`);
+    }
     return;
   }
 
@@ -297,14 +307,24 @@ async function pickStep(flow: Flow, stories: OpenStory[]): Promise<boolean> {
     },
   );
   if (ans === "done") {
-    await setStoryStatus(s.id, "done").catch(() => {});
-    await flow.say("Bravo. Un pas, c'est un pas. 🌱");
-    return true;
+    try {
+      await setStoryStatus(s.id, "done");
+      await flow.say("Bravo. Un pas, c'est un pas. 🌱");
+      return true;
+    } catch (e) {
+      await flow.say(`Je n'ai pas réussi à l'inscrire : ${humanError(e)}. Pas grave, il t'attend.`);
+      return false;
+    }
   }
   if (ans === "drop") {
-    await setStoryStatus(s.id, "dropped").catch(() => {});
-    await flow.say("Rangé. Aucun souci.");
-    return true;
+    try {
+      await setStoryStatus(s.id, "dropped");
+      await flow.say("Rangé. Aucun souci.");
+      return true;
+    } catch (e) {
+      await flow.say(`Je n'ai pas réussi à le ranger : ${humanError(e)}.`);
+      return false;
+    }
   }
   await flow.say("Ok, il t'attendra. Sans pression.");
   return false;
@@ -317,9 +337,13 @@ async function branchNote(flow: Flow, reveal: () => Promise<void>) {
     multiline: true,
     cta: "Garder",
   });
-  await captureAdd(txt).catch(() => {});
   await reveal();
-  await flow.say("C'est gardé. Pour toi seul·e.");
+  try {
+    await captureAdd(txt);
+    await flow.say("C'est gardé. Pour toi seul·e.");
+  } catch (e) {
+    await flow.say(`Je n'ai pas réussi à l'enregistrer : ${humanError(e)}. Garde-le de côté, on réessaiera.`);
+  }
   await safetyCheck(flow, txt);
 }
 
@@ -330,13 +354,20 @@ async function branchCompass(flow: Flow, reveal: () => Promise<void>) {
     cta: "Noter",
   });
   let domainId: string | null = null;
+  let problem: string | null = null;
   try {
     const d = await createDomain(thing);
     domainId = d.id;
-  } catch {
-    /* keep going even without persistence */
+  } catch (e) {
+    problem = humanError(e);
   }
   await reveal();
+  if (!domainId) {
+    await flow.say(
+      `Je n'ai pas réussi à enregistrer « ${thing} » : ${problem}. On continue quand même — tu pourras réessayer depuis ta boussole.`,
+    );
+    return;
+  }
   await flow.say(
     <>
       Noté. <b>{thing}</b> compte pour toi.
@@ -368,9 +399,19 @@ async function branchCompass(flow: Flow, reveal: () => Promise<void>) {
       />
     ));
     if (domainId && box.r) {
-      await createIntention(domainId, thing, box.r.situation, box.r.action, "should").catch(() => {});
+      try {
+        await createIntention(domainId, thing, box.r.situation, box.r.action, "should");
+      } catch (e) {
+        await flow.say(`Je n'ai pas réussi à le poser dans ta boussole : ${humanError(e)}.`);
+        return;
+      }
     } else if (domainId) {
-      await createIntention(domainId, thing, null, raw, "should").catch(() => {});
+      try {
+        await createIntention(domainId, thing, null, raw, "should");
+      } catch (e) {
+        await flow.say(`Je n'ai pas réussi à le poser dans ta boussole : ${humanError(e)}.`);
+        return;
+      }
     }
     if (box.r) {
       await flow.say(
@@ -396,58 +437,122 @@ async function branchDecision(flow: Flow, reveal: () => Promise<void>) {
 
   let decisionId: string | null = null;
   try {
-    const d = await openDecision(title);
-    decisionId = d.id;
-  } catch {
-    /* the flow still works without a persisted decision */
+    decisionId = (await openDecision(title)).id;
+  } catch (e) {
+    await flow.say(`Je n'ai pas pu ouvrir cette décision : ${humanError(e)}. On peut réessayer plus tard.`);
+    return;
   }
+  if (!decisionId) return;
   await reveal();
   await safetyCheck(flow, title);
   await flow.say("Ok. On respire, et on la prend par petits bouts.");
 
-  // 1) Widen the options — with help, or by hand.
-  const help = await flow.ask(
-    [
-      { label: "Aide-moi à trouver des pistes", value: "ai", tone: "accent" },
-      { label: "Je les écris moi-même", value: "self" },
-    ],
-    { prompt: "Quelles portes s'ouvrent à toi ?" },
-  );
+  // 1) Widen the doors — at least two real ones, plus an explicit "none of these".
+  let real: string[] = [];
+  await flow.widget((done) => (
+    <OptionFinder
+      context={title}
+      onDone={(opts) => {
+        real = opts.filter((o) => o && o.trim()).slice(0, 5);
+        done();
+      }}
+    />
+  ));
+  if (real.length === 0) {
+    await flow.say("L'assistant n'a rien sorti. Pas grave, tes mots valent mieux — donne-moi une piste.");
+  } else {
+    await flow.say("Voilà quelques portes qui s'ouvrent.");
+  }
+  while (real.length < 2) {
+    const own = await flow.input({
+      prompt:
+        real.length === 0
+          ? "Écris une première piste que tu envisages."
+          : "Encore une piste, pour ne pas te fermer de portes :",
+      placeholder: "Ex. Rester encore un an et réévaluer",
+      cta: "Ajouter",
+    });
+    if (own.trim()) real.push(own.trim());
+  }
 
-  let options: string[] = [];
-  if (help === "ai") {
-    await flow.widget((done) => (
-      <OptionFinder
-        context={title}
-        onDone={(opts) => {
-          options = opts;
-          done(opts.length ? undefined : "Rien trouvé — je les écris.");
-        }}
-      />
-    ));
-    if (options.length === 0) {
-      await flow.say("L'assistant n'a rien sorti. Pas grave, tes mots valent mieux.");
-    } else {
-      await flow.say("Voilà quelques pistes. Choisis celle que tu veux peser — ou écris la tienne.");
+  type Opt = { id: string; label: string; isNull: boolean };
+  const opts: Opt[] = [];
+  for (const label of real) {
+    try {
+      const o = await decisionAddOption(decisionId, label, false);
+      opts.push({ id: o.id, label: o.label, isNull: false });
+    } catch (e) {
+      await flow.say(`Je n'ai pas pu garder « ${label} » : ${humanError(e)}.`);
     }
   }
-
-  if (options.length === 0) {
-    const own = await flow.input({
-      prompt: "Écris une piste que tu envisages.",
-      placeholder: "Ex. Rester encore un an et réévaluer",
-      cta: "C'est ma piste",
-    });
-    options = [own];
+  try {
+    const n = await decisionAddOption(decisionId, "Aucune de celles-là — je garde ma carte à jouer", true);
+    opts.push({ id: n.id, label: n.label, isNull: true });
+  } catch (e) {
+    await flow.say(`Je n'ai pas pu ajouter « aucune de celles-là » : ${humanError(e)}.`);
+  }
+  if (opts.length < 3) {
+    await flow.say("Il me faut au moins deux pistes et une porte de sortie pour avancer. Réessaie depuis ton carnet.");
+    return;
   }
 
-  const chosen = await flow.ask(
-    options.map((o, i) => ({ label: o, value: String(i), tone: i === 0 ? "accent" : "default" })) as any,
+  // 2) Weigh one of them.
+  const pick = await flow.ask(
+    opts.map((o, i) => ({
+      label: o.label,
+      value: String(i),
+      tone: !o.isNull && i === 0 ? "accent" : "default",
+    })) as any,
+    { prompt: "Laquelle tu veux peser aujourd'hui ?" },
   );
-  const chosenLabel = options[Number(chosen)] ?? options[0];
-  if (decisionId) await decisionAddOption(decisionId, chosenLabel, false).catch(() => {});
+  const chosen = opts[Number(pick)] ?? opts[0];
+  try {
+    await decisionChooseOption(decisionId, chosen.id);
+  } catch (e) {
+    await flow.say(`Je n'ai pas pu la retenir : ${humanError(e)}.`);
+    return;
+  }
 
-  // 2) Does it fit what matters? (only if the compass has something)
+  // 3) Debias — a pre-mortem, a little distance, and what really counts.
+  const premortem = await flow.input({
+    prompt: (
+      <>
+        On la pèse. Imagine : dans un an, <b>{chosen.label}</b> a raté. Qu'est-ce qui a foiré ?
+      </>
+    ),
+    placeholder: "Ex. J'ai sous-estimé la charge, et je me suis isolé",
+    cta: "Voilà",
+  });
+  try {
+    await decisionSetPremortem(chosen.id, premortem);
+  } catch (e) {
+    await flow.say(`Je n'ai pas pu noter ça : ${humanError(e)}.`);
+  }
+
+  const distance = await flow.input({
+    prompt: "Et avec du recul — dans 10 minutes, 10 mois, 10 ans, tu verras ce choix comment ?",
+    placeholder: "Ex. 10 min : soulagé. 10 mois : dubitatif. 10 ans : je saurai.",
+    multiline: true,
+    cta: "Ok",
+  });
+  try {
+    await decisionSetDistance(decisionId, distance);
+  } catch (e) {
+    await flow.say(`Je n'ai pas pu le garder : ${humanError(e)}.`);
+  }
+
+  const why = await flow.input({
+    prompt: "Au fond, qu'est-ce qui compte vraiment là-dedans pour toi ?",
+    placeholder: "Ex. Ma santé, et ne pas m'ennuyer",
+    cta: "C'est ça",
+  });
+  try {
+    await decisionSetWhy(decisionId, why);
+  } catch (e) {
+    await flow.say(`Je n'ai pas pu le noter : ${humanError(e)}.`);
+  }
+
+  // 4) Does it fit what matters? (only if the compass has something)
   try {
     const domains = await listDomains();
     const lists = await Promise.all(domains.map((d) => listIntentions(d.id)));
@@ -456,7 +561,7 @@ async function branchDecision(flow: Flow, reveal: () => Promise<void>) {
       const noteBox: { v: string | null } = { v: null };
       await flow.widget((done) => (
         <AlignFinder
-          option={chosenLabel}
+          option={chosen.label}
           intentions={intentions}
           onDone={(n) => {
             noteBox.v = n;
@@ -464,21 +569,32 @@ async function branchDecision(flow: Flow, reveal: () => Promise<void>) {
           }}
         />
       ));
-      if (noteBox.v) await flow.say(noteBox.v);
+      if (noteBox.v) {
+        await flow.say(noteBox.v);
+        try {
+          await decisionSetAlignment(decisionId, noteBox.v);
+        } catch {
+          /* alignment is a bonus */
+        }
+      }
     }
   } catch {
     /* alignment is a bonus */
   }
 
-  // 3) How much do you feel it?
+  // 5) How much do you feel it?
   const conf = await flow.ask(CONFIDENCE, { prompt: "À quel point tu le sens ?" });
-  if (decisionId) await decisionSetConfidence(decisionId, Number(conf)).catch(() => {});
+  try {
+    await decisionSetConfidence(decisionId, Number(conf));
+  } catch (e) {
+    await flow.say(`Je n'ai pas pu retenir ta confiance : ${humanError(e)}.`);
+  }
 
-  // 4) One tiny first step.
+  // 6) One tiny first step.
   const stepBox: { value: { title: string; why: string | null } | null } = { value: null };
   await flow.widget((done) => (
     <StepFinder
-      context={`${title} — ${chosenLabel}`}
+      context={`${title} — ${chosen.label}`}
       onDone={(s) => {
         stepBox.value = s;
         done();
@@ -505,11 +621,25 @@ async function branchDecision(flow: Flow, reveal: () => Promise<void>) {
     });
   }
 
-  if (decisionId) {
-    await decisionAddStory(decisionId, stepTitle, stepBox.value?.why ?? null, null, null).catch(() => {});
-    await decisionFinalize(decisionId).catch(() => {});
+  try {
+    await decisionAddStory(decisionId, stepTitle, stepBox.value?.why ?? null, null, null);
+  } catch (e) {
+    await flow.say(
+      `Je n'ai pas pu enregistrer ton pas : ${humanError(e)}. On le notera depuis ton carnet.`
+    );
+    return;
   }
-  await flow.say("C'est noté, avec ton pas. Tu le retrouveras dans ton carnet quand tu voudras faire le point. ✓");
+  try {
+    await decisionFinalize(decisionId);
+  } catch (e) {
+    await flow.say(
+      `Ton pas est gardé, mais je n'ai pas pu clore la décision : ${humanError(e)}. On la complètera depuis ton carnet.`
+    );
+    return;
+  }
+  await flow.say(
+    "C'est posé, proprement. Tu la retrouveras dans ton carnet quand tu voudras faire le point. ✓"
+  );
 }
 
 // Inline reformulation assist (streams reasoning like the others).

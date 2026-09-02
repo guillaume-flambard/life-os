@@ -21,85 +21,115 @@ const OPS: [&str; 3] = ["added", "modified", "removed"];
 pub fn open_decision(conn: &Connection, title: &str) -> Result<DecisionFull, ApiError> {
     let title = title.trim();
     if title.is_empty() {
-        return Err(ApiError::invalid("dis-moi quelle décision te trotte".to_string()));
+        return Err(ApiError::invalid(
+            "dis-moi quelle décision te trotte".to_string(),
+        ));
     }
-    let now = Utc::now().to_rfc3339();
-    let id = Uuid::new_v4().to_string();
-    conn.execute(
-        "INSERT INTO decisions (id, title, status, created_at, updated_at)
-         VALUES (?1, ?2, 'draft', ?3, ?3)",
-        params![id, title, now],
-    )?;
-    events::record(conn, "decision.opened", "decision", &id, Some(title))?;
+    let id = super::with_tx(conn, |conn| {
+        let now = Utc::now().to_rfc3339();
+        let id = Uuid::new_v4().to_string();
+        conn.execute(
+            "INSERT INTO decisions (id, title, status, created_at, updated_at)
+             VALUES (?1, ?2, 'draft', ?3, ?3)",
+            params![id, title, now],
+        )?;
+        events::record(conn, "decision.opened", "decision", &id, Some(title))?;
+        Ok(id)
+    })?;
     get_decision(conn, &id)
 }
 
-fn touch(conn: &Connection, id: &str, now: &str) -> Result<(), ApiError> {
-    conn.execute("UPDATE decisions SET updated_at=?2 WHERE id=?1", params![id, now])?;
-    Ok(())
-}
-
 pub fn set_reality(conn: &Connection, id: &str, text: &str) -> Result<(), ApiError> {
-    let now = Utc::now().to_rfc3339();
-    conn.execute(
-        "UPDATE decisions SET emotional_context=?2, updated_at=?3 WHERE id=?1",
-        params![id, text, now],
-    )?;
-    events::record(conn, "decision.reality_set", "decision", id, None)?;
-    Ok(())
+    super::with_tx(conn, |conn| {
+        let now = Utc::now().to_rfc3339();
+        let n = conn.execute(
+            "UPDATE decisions SET emotional_context=?2, updated_at=?3 WHERE id=?1 AND deleted_at IS NULL",
+            params![id, text, now],
+        )?;
+        super::require_affected(n, "cette décision n'existe plus")?;
+        events::record(conn, "decision.reality_set", "decision", id, None)?;
+        Ok(())
+    })
 }
 
 pub fn set_distance(conn: &Connection, id: &str, text: &str) -> Result<(), ApiError> {
-    let now = Utc::now().to_rfc3339();
-    conn.execute(
-        "UPDATE decisions SET distance_10_10_10=?2, updated_at=?3 WHERE id=?1",
-        params![id, text, now],
-    )?;
-    events::record(conn, "decision.distance_set", "decision", id, None)?;
-    Ok(())
+    super::with_tx(conn, |conn| {
+        let now = Utc::now().to_rfc3339();
+        let n = conn.execute(
+            "UPDATE decisions SET distance_10_10_10=?2, updated_at=?3 WHERE id=?1 AND deleted_at IS NULL",
+            params![id, text, now],
+        )?;
+        super::require_affected(n, "cette décision n'existe plus")?;
+        events::record(conn, "decision.distance_set", "decision", id, None)?;
+        Ok(())
+    })
 }
 
 pub fn set_alignment(conn: &Connection, id: &str, note: &str) -> Result<(), ApiError> {
-    let now = Utc::now().to_rfc3339();
-    conn.execute(
-        "UPDATE decisions SET values_alignment_note=?2, updated_at=?3 WHERE id=?1",
-        params![id, note, now],
-    )?;
-    events::record(conn, "decision.alignment_set", "decision", id, None)?;
-    Ok(())
+    super::with_tx(conn, |conn| {
+        let now = Utc::now().to_rfc3339();
+        let n = conn.execute(
+            "UPDATE decisions SET values_alignment_note=?2, updated_at=?3 WHERE id=?1 AND deleted_at IS NULL",
+            params![id, note, now],
+        )?;
+        super::require_affected(n, "cette décision n'existe plus")?;
+        events::record(conn, "decision.alignment_set", "decision", id, None)?;
+        Ok(())
+    })
 }
 
 pub fn set_why(conn: &Connection, id: &str, text: &str) -> Result<(), ApiError> {
-    let now = Utc::now().to_rfc3339();
-    conn.execute(
-        "UPDATE decisions SET proposal=?2, updated_at=?3 WHERE id=?1",
-        params![id, text, now],
-    )?;
-    events::record(conn, "decision.why_set", "decision", id, None)?;
-    Ok(())
+    super::with_tx(conn, |conn| {
+        let now = Utc::now().to_rfc3339();
+        let n = conn.execute(
+            "UPDATE decisions SET proposal=?2, updated_at=?3 WHERE id=?1 AND deleted_at IS NULL",
+            params![id, text, now],
+        )?;
+        super::require_affected(n, "cette décision n'existe plus")?;
+        events::record(conn, "decision.why_set", "decision", id, None)?;
+        Ok(())
+    })
 }
 
 pub fn set_confidence(conn: &Connection, id: &str, confidence: i64) -> Result<(), ApiError> {
     if !(0..=100).contains(&confidence) {
         return Err(ApiError::invalid("la confiance va de 0 à 100".to_string()));
     }
-    let now = Utc::now().to_rfc3339();
-    conn.execute(
-        "UPDATE decisions SET confidence=?2, updated_at=?3 WHERE id=?1",
-        params![id, confidence, now],
-    )?;
-    touch(conn, id, &now)?;
-    Ok(())
+    super::with_tx(conn, |conn| {
+        let now = Utc::now().to_rfc3339();
+        let n = conn.execute(
+            "UPDATE decisions SET confidence=?2, updated_at=?3 WHERE id=?1 AND deleted_at IS NULL",
+            params![id, confidence, now],
+        )?;
+        super::require_affected(n, "cette décision n'existe plus")?;
+        events::record(
+            conn,
+            "decision.confidence_set",
+            "decision",
+            id,
+            Some(&confidence.to_string()),
+        )?;
+        Ok(())
+    })
 }
 
 pub fn set_review_at(conn: &Connection, id: &str, date: &str) -> Result<(), ApiError> {
-    let now = Utc::now().to_rfc3339();
-    conn.execute(
-        "UPDATE decisions SET review_at=?2, updated_at=?3 WHERE id=?1",
-        params![id, date, now],
-    )?;
-    events::record(conn, "decision.review_scheduled", "decision", id, Some(date))?;
-    Ok(())
+    super::with_tx(conn, |conn| {
+        let now = Utc::now().to_rfc3339();
+        let n = conn.execute(
+            "UPDATE decisions SET review_at=?2, updated_at=?3 WHERE id=?1 AND deleted_at IS NULL",
+            params![id, date, now],
+        )?;
+        super::require_affected(n, "cette décision n'existe plus")?;
+        events::record(
+            conn,
+            "decision.review_scheduled",
+            "decision",
+            id,
+            Some(date),
+        )?;
+        Ok(())
+    })
 }
 
 // --- Options --------------------------------------------------------------
@@ -114,33 +144,42 @@ pub fn add_option(
     if label.is_empty() {
         return Err(ApiError::invalid("l'option est vide".to_string()));
     }
-    let now = Utc::now().to_rfc3339();
-    let id = Uuid::new_v4().to_string();
-    conn.execute(
-        "INSERT INTO decision_options
-           (id, decision_id, label, is_null_option, chosen, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, 0, ?5, ?5)",
-        params![id, decision_id, label, is_null_option as i64, now],
-    )?;
-    events::record(conn, "option.added", "decision", decision_id, Some(label))?;
-    Ok(DecisionOption {
-        id,
-        decision_id: decision_id.to_string(),
-        label: label.to_string(),
-        is_null_option,
-        premortem: None,
-        chosen: false,
+    super::with_tx(conn, |conn| {
+        let now = Utc::now().to_rfc3339();
+        let id = Uuid::new_v4().to_string();
+        conn.execute(
+            "INSERT INTO decision_options
+               (id, decision_id, label, is_null_option, chosen, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, 0, ?5, ?5)",
+            params![id, decision_id, label, is_null_option as i64, now],
+        )?;
+        events::record(conn, "option.added", "decision", decision_id, Some(label))?;
+        Ok(DecisionOption {
+            id,
+            decision_id: decision_id.to_string(),
+            label: label.to_string(),
+            is_null_option,
+            premortem: None,
+            chosen: false,
+        })
     })
 }
 
-pub fn set_option_premortem(conn: &Connection, option_id: &str, text: &str) -> Result<(), ApiError> {
-    let now = Utc::now().to_rfc3339();
-    conn.execute(
-        "UPDATE decision_options SET premortem=?2, updated_at=?3 WHERE id=?1",
-        params![option_id, text, now],
-    )?;
-    events::record(conn, "option.premortem_set", "option", option_id, None)?;
-    Ok(())
+pub fn set_option_premortem(
+    conn: &Connection,
+    option_id: &str,
+    text: &str,
+) -> Result<(), ApiError> {
+    super::with_tx(conn, |conn| {
+        let now = Utc::now().to_rfc3339();
+        let n = conn.execute(
+            "UPDATE decision_options SET premortem=?2, updated_at=?3 WHERE id=?1 AND deleted_at IS NULL",
+            params![option_id, text, now],
+        )?;
+        super::require_affected(n, "cette option n'existe plus")?;
+        events::record(conn, "option.premortem_set", "option", option_id, None)?;
+        Ok(())
+    })
 }
 
 pub fn choose_option(
@@ -148,13 +187,35 @@ pub fn choose_option(
     decision_id: &str,
     option_id: &str,
 ) -> Result<(), ApiError> {
-    let now = Utc::now().to_rfc3339();
-    conn.execute(
-        "UPDATE decision_options SET chosen = (id = ?2), updated_at=?3 WHERE decision_id=?1",
-        params![decision_id, option_id, now],
-    )?;
-    events::record(conn, "option.chosen", "decision", decision_id, Some(option_id))?;
-    Ok(())
+    super::with_tx(conn, |conn| {
+        let owned: bool = conn.query_row(
+            "SELECT EXISTS(
+                SELECT 1 FROM decision_options
+                WHERE id = ?1 AND decision_id = ?2 AND deleted_at IS NULL
+            )",
+            params![option_id, decision_id],
+            |r| r.get(0),
+        )?;
+        if !owned {
+            return Err(ApiError::invalid(
+                "cette option n'appartient pas à cette décision".to_string(),
+            ));
+        }
+        let now = Utc::now().to_rfc3339();
+        let n = conn.execute(
+            "UPDATE decision_options SET chosen = (id = ?2), updated_at=?3 WHERE decision_id=?1",
+            params![decision_id, option_id, now],
+        )?;
+        super::require_affected(n, "cette option n'existe plus")?;
+        events::record(
+            conn,
+            "option.chosen",
+            "decision",
+            decision_id,
+            Some(option_id),
+        )?;
+        Ok(())
+    })
 }
 
 pub fn list_options(conn: &Connection, decision_id: &str) -> Result<Vec<DecisionOption>, ApiError> {
@@ -179,7 +240,11 @@ pub fn list_options(conn: &Connection, decision_id: &str) -> Result<Vec<Decision
 
 // --- Deltas & stories -----------------------------------------------------
 
-pub fn add_delta(conn: &Connection, decision_id: &str, d: &DeltaInput) -> Result<DeltaRow, ApiError> {
+pub fn add_delta(
+    conn: &Connection,
+    decision_id: &str,
+    d: &DeltaInput,
+) -> Result<DeltaRow, ApiError> {
     if !OPS.contains(&d.op.as_str()) {
         return Err(ApiError::invalid(format!("changement inconnu: {}", d.op)));
     }
@@ -188,31 +253,41 @@ pub fn add_delta(conn: &Connection, decision_id: &str, d: &DeltaInput) -> Result
             return Err(ApiError::invalid(format!("priorité inconnue: {p}")));
         }
     }
-    let now = Utc::now().to_rfc3339();
-    let id = Uuid::new_v4().to_string();
-    conn.execute(
-        "INSERT INTO deltas
-           (id, decision_id, op, target_intention_id, domain_id,
-            payload_statement, payload_situation, payload_action, payload_priority,
-            created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?10)",
-        params![
-            id, decision_id, d.op, d.target_intention_id, d.domain_id,
-            d.payload_statement, d.payload_situation, d.payload_action, d.payload_priority, now
-        ],
-    )?;
-    events::record(conn, "delta.added", "decision", decision_id, Some(&d.op))?;
-    Ok(DeltaRow {
-        id,
-        decision_id: decision_id.to_string(),
-        op: d.op.clone(),
-        target_intention_id: d.target_intention_id.clone(),
-        domain_id: d.domain_id.clone(),
-        payload_statement: d.payload_statement.clone(),
-        payload_situation: d.payload_situation.clone(),
-        payload_action: d.payload_action.clone(),
-        payload_priority: d.payload_priority.clone(),
-        applied_at: None,
+    super::with_tx(conn, |conn| {
+        let now = Utc::now().to_rfc3339();
+        let id = Uuid::new_v4().to_string();
+        conn.execute(
+            "INSERT INTO deltas
+               (id, decision_id, op, target_intention_id, domain_id,
+                payload_statement, payload_situation, payload_action, payload_priority,
+                created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?10)",
+            params![
+                id,
+                decision_id,
+                d.op,
+                d.target_intention_id,
+                d.domain_id,
+                d.payload_statement,
+                d.payload_situation,
+                d.payload_action,
+                d.payload_priority,
+                now
+            ],
+        )?;
+        events::record(conn, "delta.added", "decision", decision_id, Some(&d.op))?;
+        Ok(DeltaRow {
+            id,
+            decision_id: decision_id.to_string(),
+            op: d.op.clone(),
+            target_intention_id: d.target_intention_id.clone(),
+            domain_id: d.domain_id.clone(),
+            payload_statement: d.payload_statement.clone(),
+            payload_situation: d.payload_situation.clone(),
+            payload_action: d.payload_action.clone(),
+            payload_priority: d.payload_priority.clone(),
+            applied_at: None,
+        })
     })
 }
 
@@ -253,23 +328,25 @@ pub fn add_story(
     if title.is_empty() {
         return Err(ApiError::invalid("le petit pas est vide".to_string()));
     }
-    let now = Utc::now().to_rfc3339();
-    let id = Uuid::new_v4().to_string();
-    conn.execute(
-        "INSERT INTO stories
-           (id, decision_id, title, why, when_cue, done_when, status, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'open', ?7, ?7)",
-        params![id, decision_id, title, why, when_cue, done_when, now],
-    )?;
-    events::record(conn, "story.added", "decision", decision_id, Some(title))?;
-    Ok(StoryRow {
-        id,
-        decision_id: Some(decision_id.to_string()),
-        title: title.to_string(),
-        why: why.map(str::to_string),
-        when_cue: when_cue.map(str::to_string),
-        done_when: done_when.map(str::to_string),
-        status: "open".into(),
+    super::with_tx(conn, |conn| {
+        let now = Utc::now().to_rfc3339();
+        let id = Uuid::new_v4().to_string();
+        conn.execute(
+            "INSERT INTO stories
+               (id, decision_id, title, why, when_cue, done_when, status, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'open', ?7, ?7)",
+            params![id, decision_id, title, why, when_cue, done_when, now],
+        )?;
+        events::record(conn, "story.added", "decision", decision_id, Some(title))?;
+        Ok(StoryRow {
+            id,
+            decision_id: Some(decision_id.to_string()),
+            title: title.to_string(),
+            why: why.map(str::to_string),
+            when_cue: when_cue.map(str::to_string),
+            done_when: done_when.map(str::to_string),
+            status: "open".into(),
+        })
     })
 }
 
@@ -354,7 +431,12 @@ pub fn finalize(conn: &Connection, id: &str) -> Result<DecisionFull, ApiError> {
         }
         _ => {}
     }
-    if d.distance_10_10_10.as_deref().unwrap_or("").trim().is_empty() {
+    if d.distance_10_10_10
+        .as_deref()
+        .unwrap_or("")
+        .trim()
+        .is_empty()
+    {
         missing.push("le recul 10 min / 10 mois / 10 ans");
     }
     if d.proposal.as_deref().unwrap_or("").trim().is_empty() {
@@ -365,21 +447,28 @@ pub fn finalize(conn: &Connection, id: &str) -> Result<DecisionFull, ApiError> {
     }
 
     if !missing.is_empty() {
-        return Err(ApiError::incomplete(format!("Il manque : {}.", missing.join(", "))));
+        return Err(ApiError::incomplete(format!(
+            "Il manque : {}.",
+            missing.join(", ")
+        )));
     }
 
-    let now = Utc::now().to_rfc3339();
-    conn.execute(
-        "UPDATE decisions SET status='proposed', updated_at=?2 WHERE id=?1",
-        params![id, now],
-    )?;
-    events::record(conn, "decision.proposed", "decision", id, None)?;
     // Remember the decision for later recall / contradiction checks.
     let mem = match &d.proposal {
         Some(p) if !p.trim().is_empty() => format!("{} — {}", d.title, p),
         _ => d.title.clone(),
     };
-    let _ = crate::db::repo::memory::write_chunk(conn, &mem, "decision", Some(id));
+    super::with_tx(conn, |conn| {
+        let now = Utc::now().to_rfc3339();
+        let n = conn.execute(
+            "UPDATE decisions SET status='proposed', updated_at=?2 WHERE id=?1 AND deleted_at IS NULL",
+            params![id, now],
+        )?;
+        super::require_affected(n, "cette décision n'existe plus")?;
+        events::record(conn, "decision.proposed", "decision", id, None)?;
+        let _ = crate::db::repo::memory::write_chunk(conn, &mem, "decision", Some(id));
+        Ok(())
+    })?;
     get_decision(conn, id)
 }
 
@@ -406,10 +495,14 @@ pub fn apply_decision(
 ) -> Result<DecisionFull, ApiError> {
     let d = get_decision(conn, decision_id)?;
     if d.status != "proposed" {
-        return Err(ApiError::invalid("cette décision n'est pas prête à être intégrée".to_string()));
+        return Err(ApiError::invalid(
+            "cette décision n'est pas prête à être intégrée".to_string(),
+        ));
     }
-    let by_delta: HashMap<&str, &DeltaResolution> =
-        resolutions.iter().map(|r| (r.delta_id.as_str(), r)).collect();
+    let by_delta: HashMap<&str, &DeltaResolution> = resolutions
+        .iter()
+        .map(|r| (r.delta_id.as_str(), r))
+        .collect();
 
     let tx = conn.unchecked_transaction().map_err(ApiError::db)?;
     let now = Utc::now().to_rfc3339();
@@ -419,7 +512,9 @@ pub fn apply_decision(
             continue;
         }
         let res = by_delta.get(delta.id.as_str());
-        let domain_id = res.and_then(|r| r.domain_id.clone()).or(delta.domain_id.clone());
+        let domain_id = res
+            .and_then(|r| r.domain_id.clone())
+            .or(delta.domain_id.clone());
         let target = res
             .and_then(|r| r.target_intention_id.clone())
             .or(delta.target_intention_id.clone());

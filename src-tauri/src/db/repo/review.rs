@@ -14,14 +14,17 @@ pub fn open_review(
     period_start: Option<&str>,
     period_end: Option<&str>,
 ) -> Result<Review, ApiError> {
-    let now = Utc::now().to_rfc3339();
-    let id = Uuid::new_v4().to_string();
-    conn.execute(
-        "INSERT INTO reviews (id, period_start, period_end, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?4)",
-        params![id, period_start, period_end, now],
-    )?;
-    events::record(conn, "review.opened", "review", &id, None)?;
+    let id = super::with_tx(conn, |conn| {
+        let now = Utc::now().to_rfc3339();
+        let id = Uuid::new_v4().to_string();
+        conn.execute(
+            "INSERT INTO reviews (id, period_start, period_end, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?4)",
+            params![id, period_start, period_end, now],
+        )?;
+        events::record(conn, "review.opened", "review", &id, None)?;
+        Ok(id)
+    })?;
     get_review(conn, &id)
 }
 
@@ -77,24 +80,34 @@ pub fn add_item(
             return Err(ApiError::invalid(format!("issue inconnue: {o}")));
         }
     }
-    let now = Utc::now().to_rfc3339();
-    let id = Uuid::new_v4().to_string();
-    conn.execute(
-        "INSERT INTO review_items
-           (id, review_id, intention_id, decision_id, outcome, learning, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7)",
-        params![id, review_id, intention_id, decision_id, outcome, learning, now],
-    )?;
-    events::record(conn, "review.item_recorded", "review", review_id, outcome)?;
-    Ok(ReviewItem {
-        id,
-        review_id: review_id.to_string(),
-        intention_id: intention_id.map(str::to_string),
-        decision_id: decision_id.map(str::to_string),
-        outcome: outcome.map(str::to_string),
-        learning: learning.map(str::to_string),
-        created_at: now.clone(),
-        updated_at: now,
+    super::with_tx(conn, |conn| {
+        let now = Utc::now().to_rfc3339();
+        let id = Uuid::new_v4().to_string();
+        conn.execute(
+            "INSERT INTO review_items
+               (id, review_id, intention_id, decision_id, outcome, learning, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7)",
+            params![
+                id,
+                review_id,
+                intention_id,
+                decision_id,
+                outcome,
+                learning,
+                now
+            ],
+        )?;
+        events::record(conn, "review.item_recorded", "review", review_id, outcome)?;
+        Ok(ReviewItem {
+            id,
+            review_id: review_id.to_string(),
+            intention_id: intention_id.map(str::to_string),
+            decision_id: decision_id.map(str::to_string),
+            outcome: outcome.map(str::to_string),
+            learning: learning.map(str::to_string),
+            created_at: now.clone(),
+            updated_at: now,
+        })
     })
 }
 

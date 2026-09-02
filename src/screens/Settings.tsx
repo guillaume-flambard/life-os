@@ -61,7 +61,7 @@ export function Settings({ ctx }: { ctx: Ctx }) {
       </Box>
 
       <Box>
-        <SectionTitle hint="Le mode expert montre le vocabulaire du moteur (spec, delta, revue).">
+        <SectionTitle hint="Le mode expert affiche les rouages techniques, pour les curieux.">
           Niveau de détail
         </SectionTitle>
         <Card>
@@ -114,33 +114,34 @@ function HealthCard({
 }
 
 function ExportCard() {
-  const [busy, setBusy] = useState(false);
-  const run = async () => {
-    setBusy(true);
-    try {
-      const md = await exportData();
-      await navigator.clipboard.writeText(md).catch(() => {});
-      toaster.create({ type: "success", title: "Export copié", description: "Tout ton contenu en Markdown, dans le presse-papier." });
-    } catch (e) {
-      toaster.create({ type: "error", title: "Oups", description: humanError(e) });
-    } finally {
-      setBusy(false);
-    }
-  };
-  return (
-    <Card>
-      <HStack>
-        <Stack gap="0.5" flex="1">
-          <Text fontSize="sm" fontWeight="medium">Exporter</Text>
-          <Text fontSize="xs" color="fg.muted">Tout ton contenu en texte lisible, à toi.</Text>
-        </Stack>
-        <Btn sm subtle onClick={run} loading={busy}>
-          Copier en Markdown
-        </Btn>
-      </HStack>
-    </Card>
-  );
-}
+    const [busy, setBusy] = useState(false);
+    const run = async () => {
+      setBusy(true);
+      try {
+        const path = await exportData();
+        toaster.create({ type: "success", title: "Export créé", description: path });
+      } catch (e) {
+        toaster.create({ type: "error", title: "Oups", description: humanError(e) });
+      } finally {
+        setBusy(false);
+      }
+    };
+    return (
+      <Card>
+        <HStack>
+          <Stack gap="0.5" flex="1">
+            <Text fontSize="sm" fontWeight="medium">Exporter</Text>
+            <Text fontSize="xs" color="fg.muted">
+              Tout ton contenu en texte lisible, sauvegardé dans Tes documents.
+            </Text>
+          </Stack>
+          <Btn sm subtle onClick={run} loading={busy}>
+            Exporter en Markdown
+          </Btn>
+        </HStack>
+      </Card>
+    );
+  }
 
 function SyncCard() {
   const [pass, setPass] = useState("");

@@ -5,9 +5,11 @@
 //! brick; the day-one UUID/updated_at/events design is what makes it safe.
 
 use crate::domain::{ApiError, MergeSummary};
+use chrono::DateTime;
 use rusqlite::types::{Value, ValueRef};
 use rusqlite::{params_from_iter, Connection, OptionalExtension};
 use serde_json::{json, Map, Value as J};
+use std::collections::HashSet;
 use std::io::{Read, Write};
 
 /// Row-LWW tables (matched by `id`, newer `updated_at` wins).
@@ -77,16 +79,79 @@ pub fn export_json(conn: &Connection) -> Result<J, ApiError> {
     Ok(json!({ "version": 1, "tables": J::Object(tables) }))
 }
 
-fn upsert(conn: &Connection, table: &str, obj: &Map<String, J>) -> Result<(), ApiError> {
+/// Column names of a local table — the whitelist an imported row may use.
+/// Snapshot tables are static constants, so building this SQL is safe.
+fn table_columns(conn: &Connection, table: &str) -> Result<HashSet<String>, ApiError> {
+    let mut stmt = conn
+        .prepare(&format!("PRAGMA table_info({table})"))
+        .map_err(ApiError::db)?;
+    let cols = stmt
+        .query_map([], |r| r.get::<_, String>(1))
+        .map_err(ApiError::db)?
+        .collect::<rusqlite::Result<HashSet<_>>>()
+        .map_err(ApiError::db)?;
+    Ok(cols)
+}
+
+/// Reject a row that is not a faithful image of the local table: an unknown
+/// column is an identifier-injection vector (it would be interpolated into the
+/// INSERT), and timestamps must be valid RFC3339 — the LWW comparison and the
+/// Markdown export both rely on that single canonical format.
+fn sanitize_row(
+    table: &str,
+    obj: &Map<String, J>,
+    allowed: &HashSet<String>,
+) -> Result<(), ApiError> {
+    for (col, val) in obj {
+        if !allowed.contains(col) {
+            return Err(ApiError::invalid(format!(
+                "instantané illisible : colonne inconnue « {col} » dans « {table} »"
+            )));
+        }
+        let is_ts = col == "ts" || col.ends_with("_at");
+        if is_ts && !val.is_null() {
+            let Some(s) = val.as_str() else {
+                return Err(ApiError::invalid(format!(
+                    "instantané illisible : « {col} » de « {table} » n'est pas un horodatage"
+                )));
+            };
+            if DateTime::parse_from_rfc3339(s).is_err() {
+                return Err(ApiError::invalid(format!(
+                    "instantané illisible : « {col} » de « {table} » n'est pas un horodatage valide"
+                )));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Insert a row, updating it in place on primary-key conflict. Never REPLACE:
+/// delete+insert would bypass the FTS sync triggers and hand the row a new
+/// rowid, breaking the recency heuristic of the recall.
+fn upsert(conn: &Connection, table: &str, key: &str, obj: &Map<String, J>) -> Result<(), ApiError> {
     let cols: Vec<&String> = obj.keys().collect();
     let placeholders: Vec<String> = (1..=cols.len()).map(|i| format!("?{i}")).collect();
+    let sets: Vec<String> = cols
+        .iter()
+        .filter(|c| c.as_str() != key)
+        .map(|c| format!("{c} = excluded.{c}"))
+        .collect();
+    let on_conflict = if sets.is_empty() {
+        format!("ON CONFLICT({key}) DO NOTHING")
+    } else {
+        format!("ON CONFLICT({key}) DO UPDATE SET {}", sets.join(", "))
+    };
     let sql = format!(
-        "INSERT OR REPLACE INTO {table} ({}) VALUES ({})",
-        cols.iter().map(|c| c.as_str()).collect::<Vec<_>>().join(","),
+        "INSERT INTO {table} ({}) VALUES ({}) {on_conflict}",
+        cols.iter()
+            .map(|c| c.as_str())
+            .collect::<Vec<_>>()
+            .join(","),
         placeholders.join(",")
     );
     let vals: Vec<Value> = cols.iter().map(|c| json_sqlite(&obj[*c])).collect();
-    conn.execute(&sql, params_from_iter(vals)).map_err(ApiError::db)?;
+    conn.execute(&sql, params_from_iter(vals))
+        .map_err(ApiError::db)?;
     Ok(())
 }
 
@@ -97,9 +162,13 @@ fn merge_lww(
     key: &str,
     sum: &mut MergeSummary,
 ) -> Result<(), ApiError> {
+    let allowed = table_columns(conn, table)?;
     for row in rows {
         let Some(obj) = row.as_object() else { continue };
-        let Some(key_val) = obj.get(key).and_then(|v| v.as_str()) else { continue };
+        let Some(key_val) = obj.get(key).and_then(|v| v.as_str()) else {
+            continue;
+        };
+        sanitize_row(table, obj, &allowed)?;
         let incoming = obj.get("updated_at").and_then(|v| v.as_str()).unwrap_or("");
         let local: Option<String> = conn
             .query_row(
@@ -109,32 +178,64 @@ fn merge_lww(
             )
             .optional()
             .map_err(ApiError::db)?;
-        match local {
-            None => {
-                upsert(conn, table, obj)?;
+        // Both sides are validated RFC3339, but offsets can differ; compare as
+        // instants rather than trusting the string order.
+        let newer = match &local {
+            None => true,
+            Some(loc) => {
+                let (a, b) = (
+                    DateTime::parse_from_rfc3339(incoming),
+                    DateTime::parse_from_rfc3339(loc),
+                );
+                matches!((a, b), (Ok(a), Ok(b)) if a > b)
+            }
+        };
+        if newer {
+            upsert(conn, table, key, obj)?;
+            if local.is_some() {
+                sum.updated += 1;
+            } else {
                 sum.inserted += 1;
             }
-            Some(loc) if incoming > loc.as_str() => {
-                upsert(conn, table, obj)?;
-                sum.updated += 1;
-            }
-            Some(_) => sum.skipped += 1,
+        } else {
+            sum.skipped += 1;
         }
     }
     Ok(())
 }
 
 fn merge_events(conn: &Connection, rows: &[J], sum: &mut MergeSummary) -> Result<(), ApiError> {
+    let allowed = table_columns(conn, "events")?;
     for row in rows {
         let Some(obj) = row.as_object() else { continue };
-        let Some(id) = obj.get("id").and_then(|v| v.as_str()) else { continue };
+        let Some(id) = obj.get("id").and_then(|v| v.as_str()) else {
+            continue;
+        };
+        sanitize_row("events", obj, &allowed)?;
         let exists: bool = conn
-            .query_row("SELECT EXISTS(SELECT 1 FROM events WHERE id = ?1)", [id], |r| r.get(0))
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM events WHERE id = ?1)",
+                [id],
+                |r| r.get(0),
+            )
             .map_err(ApiError::db)?;
         if exists {
             sum.skipped += 1;
         } else {
-            upsert(conn, "events", obj)?;
+            // Append-only by construction: an existing event is never rewritten.
+            let cols: Vec<&String> = obj.keys().collect();
+            let placeholders: Vec<String> = (1..=cols.len()).map(|i| format!("?{i}")).collect();
+            let sql = format!(
+                "INSERT INTO events ({}) VALUES ({}) ON CONFLICT(id) DO NOTHING",
+                cols.iter()
+                    .map(|c| c.as_str())
+                    .collect::<Vec<_>>()
+                    .join(","),
+                placeholders.join(",")
+            );
+            let vals: Vec<Value> = cols.iter().map(|c| json_sqlite(&obj[*c])).collect();
+            conn.execute(&sql, params_from_iter(vals))
+                .map_err(ApiError::db)?;
             sum.inserted += 1;
         }
     }
@@ -170,7 +271,8 @@ pub fn import_merge(conn: &Connection, snapshot: &J) -> Result<MergeSummary, Api
 // --- Passphrase encryption (age) ------------------------------------------
 
 pub fn encrypt(plaintext: &[u8], passphrase: &str) -> Result<Vec<u8>, String> {
-    let enc = age::Encryptor::with_user_passphrase(age::secrecy::Secret::new(passphrase.to_owned()));
+    let enc =
+        age::Encryptor::with_user_passphrase(age::secrecy::Secret::new(passphrase.to_owned()));
     let mut out = Vec::new();
     let mut w = enc.wrap_output(&mut out).map_err(|e| e.to_string())?;
     w.write_all(plaintext).map_err(|e| e.to_string())?;

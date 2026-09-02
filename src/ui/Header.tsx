@@ -63,19 +63,19 @@ export function Header({ ctx, revealed }: { ctx: Ctx; revealed: boolean }) {
           {color === "dark" ? <IconSun boxSize="4" /> : <IconMoon boxSize="4" />}
         </IconButton>
 
+        <IconButton
+          size="xs"
+          variant="ghost"
+          color="fg.muted"
+          aria-label="Besoin de parler"
+          onClick={() => navigate("distress")}
+          _hover={{ color: "accent.emphasis", bg: "accent.subtle" }}
+        >
+          <IconHeart boxSize="4" />
+        </IconButton>
+
         {revealed && (
           <>
-            <IconButton
-              size="xs"
-              variant="ghost"
-              color="fg.muted"
-              aria-label="Besoin de parler"
-              onClick={() => navigate("distress")}
-              _hover={{ color: "accent.emphasis", bg: "accent.subtle" }}
-            >
-              <IconHeart boxSize="4" />
-            </IconButton>
-
             <Menu.Root>
               <Menu.Trigger asChild>
                 <Button size="xs" variant="subtle">

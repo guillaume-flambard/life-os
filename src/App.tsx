@@ -4,7 +4,7 @@ import { getMode, isOnboarded, setMode as saveMode, type UiMode } from "./lib/ip
 import { PageTransition } from "./ui/motion";
 import { useRoute, type Route } from "./ui/router";
 import { Header } from "./ui/Header";
-import { Toaster } from "./ui/toaster";
+import { Toaster, toaster } from "./ui/toaster";
 import { Guide } from "./screens/Guide";
 import { Compass } from "./screens/Compass";
 import { Carnet } from "./screens/Carnet";
@@ -56,6 +56,8 @@ export function App() {
         setOnboarded(ob);
         setRevealed(ob);
         setModeState(m);
+      } catch (e) {
+        console.error("boot failed", e);
       } finally {
         setBooted(true);
       }
@@ -64,10 +66,22 @@ export function App() {
 
   const setMode = (m: UiMode) => {
     setModeState(m);
-    void saveMode(m);
+    saveMode(m).catch(() => {
+      toaster.create({
+        type: "error",
+        title: "Oups",
+        description: "Le mode n'a pas pu être mémorisé.",
+      });
+    });
   };
   const ctx: Ctx = { mode, setMode };
-  const reveal = () => setRevealed(true);
+  // Revealing also flips the onboarding state: without it, leaving home and
+  // coming back would remount the guide with `onboarded=false` and replay the
+  // whole first-run conversation.
+  const reveal = () => {
+    setRevealed(true);
+    setOnboarded(true);
+  };
 
   if (!booted) {
     return (

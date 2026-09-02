@@ -23,22 +23,24 @@ pub fn add_capture(
     if !KINDS.contains(&kind) {
         return Err(ApiError::invalid(format!("type inconnu: {kind}")));
     }
-    let now = Utc::now().to_rfc3339();
-    let id = Uuid::new_v4().to_string();
-    conn.execute(
-        "INSERT INTO captures (id, content, kind, decision_id, intention_id, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6)",
-        params![id, content, kind, decision_id, intention_id, now],
-    )?;
-    events::record(conn, "capture.added", "capture", &id, Some(kind))?;
-    Ok(Capture {
-        id,
-        content: content.to_string(),
-        kind: kind.to_string(),
-        decision_id: decision_id.map(str::to_string),
-        intention_id: intention_id.map(str::to_string),
-        created_at: now.clone(),
-        updated_at: now,
+    super::with_tx(conn, |conn| {
+        let now = Utc::now().to_rfc3339();
+        let id = Uuid::new_v4().to_string();
+        conn.execute(
+            "INSERT INTO captures (id, content, kind, decision_id, intention_id, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6)",
+            params![id, content, kind, decision_id, intention_id, now],
+        )?;
+        events::record(conn, "capture.added", "capture", &id, Some(kind))?;
+        Ok(Capture {
+            id,
+            content: content.to_string(),
+            kind: kind.to_string(),
+            decision_id: decision_id.map(str::to_string),
+            intention_id: intention_id.map(str::to_string),
+            created_at: now.clone(),
+            updated_at: now,
+        })
     })
 }
 

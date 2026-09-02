@@ -1,5 +1,5 @@
 import { Box, HStack, Stack, Text } from "@chakra-ui/react";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import type { Ctx } from "../App";
 import {
   captureAdd,
@@ -124,11 +124,15 @@ export function Daily({ ctx }: { ctx: Ctx }) {
 
 function StepRow({ story, onDone }: { story: OpenStory; onDone: () => void }) {
   const [done, setDone] = useState(false);
+  const timer = useRef<number | null>(null);
+  useEffect(() => () => {
+    if (timer.current != null) window.clearTimeout(timer.current);
+  }, []);
   const complete = async () => {
     setDone(true);
     try {
       await setStoryStatus(story.id, "done");
-      setTimeout(onDone, 350);
+      timer.current = window.setTimeout(onDone, 350);
     } catch {
       setDone(false);
     }

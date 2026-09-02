@@ -1,5 +1,5 @@
 import { Box, HStack, Stack, Text } from "@chakra-ui/react";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import type { Ctx } from "../App";
 import {
   applyDecision,
@@ -21,6 +21,10 @@ export function Review({ ctx }: { ctx: Ctx }) {
   const [note, setNote] = useState("");
   const [savingNote, setSavingNote] = useState(false);
   const [savedNote, setSavedNote] = useState(false);
+  const noteTimer = useRef<number | null>(null);
+  useEffect(() => () => {
+    if (noteTimer.current != null) window.clearTimeout(noteTimer.current);
+  }, []);
 
   const saveReflection = async () => {
     if (!note.trim()) return;
@@ -29,7 +33,7 @@ export function Review({ ctx }: { ctx: Ctx }) {
       await captureAdd(note.trim(), "reflection");
       setNote("");
       setSavedNote(true);
-      setTimeout(() => setSavedNote(false), 2500);
+      noteTimer.current = window.setTimeout(() => setSavedNote(false), 2500);
     } catch (e) {
       toaster.create({ type: "error", title: "Oups", description: humanError(e) });
     } finally {

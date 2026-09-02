@@ -28,12 +28,29 @@ impl Ollama {
         let base = std::env::var("LIFEOS_OLLAMA_URL")
             .unwrap_or_else(|_| "http://127.0.0.1:11434".to_string());
         let model = std::env::var("LIFEOS_MODEL").unwrap_or_else(|_| "qwen3:8b".to_string());
-        Self { base, model, http: reqwest::Client::new() }
+        // Bounded calls: a wedged or absent local server must fail, not hang the
+        // command forever. 300 s is generous for a local model yet finite;
+        // overridable for slow hardware via LIFEOS_HTTP_TIMEOUT_SECS.
+        let secs = std::env::var("LIFEOS_HTTP_TIMEOUT_SECS")
+            .ok()
+            .and_then(|v| v.parse::<u64>().ok())
+            .unwrap_or(300);
+        let http = reqwest::Client::builder()
+            .connect_timeout(std::time::Duration::from_secs(10))
+            .timeout(std::time::Duration::from_secs(secs))
+            .build()
+            .unwrap_or_else(|_| reqwest::Client::new());
+        Self { base, model, http }
     }
 
     /// Probe the local server. Never contacts any external host.
     pub async fn health(&self) -> Health {
-        match self.http.get(format!("{}/api/tags", self.base)).send().await {
+        match self
+            .http
+            .get(format!("{}/api/tags", self.base))
+            .send()
+            .await
+        {
             Ok(r) if r.status().is_success() => Health::ok(format!("Ollama prêt ({})", self.model)),
             Ok(r) => Health::ko(format!("Ollama a répondu {}", r.status())),
             Err(_) => Health::ko("Ollama injoignable (lance `ollama serve`)".to_string()),
@@ -175,7 +192,8 @@ impl Ollama {
                 app,
             )
             .await?;
-        serde_json::from_value::<OptionSuggestions>(raw).map_err(|e| format!("sortie invalide: {e}"))
+        serde_json::from_value::<OptionSuggestions>(raw)
+            .map_err(|e| format!("sortie invalide: {e}"))
     }
 
     /// Report alignment to the compass in plain words. The prompt requires
@@ -187,7 +205,9 @@ impl Ollama {
         app: Option<&AppHandle>,
     ) -> Result<AlignmentNote, String> {
         let schema: Value = serde_json::from_str(ALIGN_SCHEMA).map_err(|e| e.to_string())?;
-        let user = format!("Option envisagée : {option}\n\nCe qui compte pour la personne :\n{intentions}");
+        let user = format!(
+            "Option envisagée : {option}\n\nCe qui compte pour la personne :\n{intentions}"
+        );
         let raw = self
             .chat_json(
                 "Dis, en mots simples, en quoi cette option COLLE avec ce qui compte pour la \
@@ -298,5 +318,69 @@ impl Ollama {
             )
             .await?;
         serde_json::from_value::<WoopSuggestion>(raw).map_err(|e| format!("sortie invalide: {e}"))
+    }
+}
+
+/// Live end-to-end verification against a running Ollama. Ignored by default so
+/// CI (no model) stays green; run explicitly with a local server up:
+///   `cargo test --lib ai::ollama::live -- --ignored --nocapture`
+///
+/// It exercises the whole AI path the app uses — bounded reqwest client, JSON
+/// Schema constraint, and typed-deserialization validation (NFR4) — against the
+/// real model, and asserts every structured call returns a valid, non-empty
+/// result. A schema or timeout regression fails here, not silently in the UI.
+#[cfg(test)]
+mod live_tests {
+    use super::Ollama;
+
+    fn ai() -> Ollama {
+        Ollama::from_env()
+    }
+
+    #[tokio::test]
+    #[ignore = "requires a running Ollama with LIFEOS_MODEL pulled"]
+    async fn live_structured_calls_are_schema_valid() {
+        let ai = ai();
+
+        let health = ai.health().await;
+        assert!(health.ok, "Ollama injoignable: {}", health.detail);
+
+        let d = ai.generate_delta("Je veux arrêter de scroller le soir.").await;
+        let d = d.expect("generate_delta failed");
+        assert!(
+            matches!(d.op.as_str(), "added" | "modified" | "removed"),
+            "delta op out of enum: {}",
+            d.op
+        );
+
+        let r = ai.reformulate_intention("je voudrais faire plus de sport", None).await;
+        let r = r.expect("reformulate_intention failed");
+        assert!(!r.situation.trim().is_empty(), "empty situation");
+        assert!(!r.action.trim().is_empty(), "empty action");
+
+        let o = ai
+            .suggest_options("Est-ce que je change de job cette année ?", None)
+            .await;
+        let o = o.expect("suggest_options failed");
+        assert!(o.options.len() >= 2, "expected >=2 options, got {}", o.options.len());
+
+        let a = ai
+            .align_values("Tout plaquer pour un tour du monde", "Famille · Santé · Argent", None)
+            .await;
+        let a = a.expect("align_values failed");
+        assert!(!a.note.trim().is_empty(), "empty alignment note");
+
+        let s = ai.generate_story("Passer plus de temps avec mes proches", None).await;
+        let s = s.expect("generate_story failed");
+        assert!(!s.title.trim().is_empty(), "empty story title");
+
+        let w = ai.generate_woop("Rappeler mes parents chaque semaine", None).await;
+        let w = w.expect("generate_woop failed");
+        assert!(!w.cue.trim().is_empty(), "empty woop cue");
+        assert!(!w.action.trim().is_empty(), "empty woop action");
+
+        let e = ai.embed("une phrase à embarquer").await;
+        let e = e.expect("embed failed");
+        assert!(!e.is_empty(), "empty embedding");
     }
 }

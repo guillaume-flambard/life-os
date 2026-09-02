@@ -29,8 +29,16 @@ The engine's rigor stays invisible. Two layers run on the same engine:
 
 ## Scope
 
-- **MVP Phase 1 only: Epics 1–3** of the PRD (foundations + compass +
-  decision-as-change-proposal). Do not build beyond.
+- **Original MVP (Epics 1–3) has shipped and grown.** The engine (foundations,
+  compass, decision-as-change-proposal) is complete, and the human front-end was
+  rebuilt as a guided conversation (`redesign-conversational-ui`). The app now
+  covers a full first release: compass, daily, memory, review, safety, sync,
+  onboarding, guided-decision, next-step, and release-prep.
+- **Current frontier = verification + release, not new features.** Open work:
+  an end-to-end run against a live Ollama model, guided-decision parity
+  (pre-mortem, explicit "none of these", editing), and applying/archiving
+  `harden-core` (security + data-integrity + honest-UI pass). Do not add feature
+  scope beyond this without a decision.
 
 ## Stack
 

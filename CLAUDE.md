@@ -11,7 +11,14 @@ ressources) as the source of truth before changing anything.
   directly — flow through a change, then archive it on apply.
 - **BMAD roles are sequential lenses, not a multi-agent debate.** One model adopts
   distinct framings (explore → frame → strategize → shard → review) one at a time.
-- **Scope: MVP Phase 1 = Epics 1–3 only.** Do not build beyond without a decision.
+- **Scope has moved past the original MVP.** Epics 1–3 shipped, then
+  `redesign-conversational-ui` rebuilt the human front-end as a guided
+  conversation and the app grew into a full first release (compass, daily,
+  memory, review, safety, sync, onboarding, guided-decision, next-step,
+  release-prep). The current frontier is **verification + release, not new
+  features**: an end-to-end run against a live Ollama model, guided-decision
+  parity, and applying/archiving `harden-core`. Do not add feature scope beyond
+  that without a decision.
 
 ## Non-negotiable constraints
 

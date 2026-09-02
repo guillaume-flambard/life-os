@@ -9,37 +9,41 @@ use std::collections::HashMap;
 use uuid::Uuid;
 
 /// Write (or update) the single memory chunk for a source. Returns the chunk id.
+/// Atomic: the chunk and its FTS index entry commit together (nested calls join
+/// the caller's transaction).
 pub fn write_chunk(
     conn: &Connection,
     content: &str,
     source_type: &str,
     source_id: Option<&str>,
 ) -> rusqlite::Result<String> {
-    let now = Utc::now().to_rfc3339();
-    let existing: Option<String> = conn
-        .query_row(
-            "SELECT id FROM memory_chunks
-             WHERE source_type = ?1 AND source_id IS ?2 AND deleted_at IS NULL",
-            params![source_type, source_id],
-            |r| r.get(0),
-        )
-        .optional()?;
+    super::with_tx_rusqlite(conn, |conn| {
+        let now = Utc::now().to_rfc3339();
+        let existing: Option<String> = conn
+            .query_row(
+                "SELECT id FROM memory_chunks
+                 WHERE source_type = ?1 AND source_id IS ?2 AND deleted_at IS NULL",
+                params![source_type, source_id],
+                |r| r.get(0),
+            )
+            .optional()?;
 
-    if let Some(id) = existing {
-        conn.execute(
-            "UPDATE memory_chunks SET content = ?2, updated_at = ?3 WHERE id = ?1",
-            params![id, content, now],
-        )?;
-        Ok(id)
-    } else {
-        let id = Uuid::new_v4().to_string();
-        conn.execute(
-            "INSERT INTO memory_chunks (id, content, source_type, source_id, created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?5)",
-            params![id, content, source_type, source_id, now],
-        )?;
-        Ok(id)
-    }
+        if let Some(id) = existing {
+            conn.execute(
+                "UPDATE memory_chunks SET content = ?2, updated_at = ?3 WHERE id = ?1",
+                params![id, content, now],
+            )?;
+            Ok(id)
+        } else {
+            let id = Uuid::new_v4().to_string();
+            conn.execute(
+                "INSERT INTO memory_chunks (id, content, source_type, source_id, created_at, updated_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?5)",
+                params![id, content, source_type, source_id, now],
+            )?;
+            Ok(id)
+        }
+    })
 }
 
 /// Turn a free-text query into a safe FTS5 MATCH expression: quoted terms OR-ed.
@@ -58,7 +62,9 @@ fn fts_match(query: &str) -> Option<String> {
 
 /// Keyword search (FTS5 BM25). Returns chunk ids, best match first.
 pub fn keyword_search(conn: &Connection, query: &str, k: i64) -> rusqlite::Result<Vec<String>> {
-    let Some(m) = fts_match(query) else { return Ok(vec![]) };
+    let Some(m) = fts_match(query) else {
+        return Ok(vec![]);
+    };
     let mut stmt = conn.prepare(
         "SELECT c.id FROM memory_fts
          JOIN memory_chunks c ON c.rowid = memory_fts.rowid
@@ -94,19 +100,24 @@ pub fn semantic_search(
          WHERE embedding MATCH ?1 AND k = ?2 ORDER BY distance",
     )?;
     let ids = stmt
-        .query_map(params![embedding_json(query_embedding), k], |r| r.get::<_, String>(0))?
+        .query_map(params![embedding_json(query_embedding), k], |r| {
+            r.get::<_, String>(0)
+        })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
     Ok(ids)
 }
 
-/// Upsert a chunk's embedding.
+/// Upsert a chunk's embedding. Atomic: the old vector and the new one commit
+/// together (nested calls join the caller's transaction).
 pub fn insert_vec(conn: &Connection, chunk_id: &str, embedding: &[f32]) -> rusqlite::Result<()> {
-    conn.execute("DELETE FROM memory_vec WHERE chunk_id = ?1", [chunk_id])?;
-    conn.execute(
-        "INSERT INTO memory_vec (chunk_id, embedding) VALUES (?1, ?2)",
-        params![chunk_id, embedding_json(embedding)],
-    )?;
-    Ok(())
+    super::with_tx_rusqlite(conn, |conn| {
+        conn.execute("DELETE FROM memory_vec WHERE chunk_id = ?1", [chunk_id])?;
+        conn.execute(
+            "INSERT INTO memory_vec (chunk_id, embedding) VALUES (?1, ?2)",
+            params![chunk_id, embedding_json(embedding)],
+        )?;
+        Ok(())
+    })
 }
 
 /// Chunks that don't have an embedding yet (id, content).
@@ -128,7 +139,9 @@ fn recency(conn: &Connection, ids: &[String]) -> HashMap<String, i64> {
     let mut map = HashMap::new();
     for id in ids {
         if let Ok(rowid) =
-            conn.query_row("SELECT rowid FROM memory_chunks WHERE id = ?1", [id], |r| r.get::<_, i64>(0))
+            conn.query_row("SELECT rowid FROM memory_chunks WHERE id = ?1", [id], |r| {
+                r.get::<_, i64>(0)
+            })
         {
             map.insert(id.clone(), rowid);
         }

@@ -18,13 +18,13 @@ pub fn run() {
     db::register_vec();
 
     tauri::Builder::default()
-        .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let dir = app.path().app_data_dir().expect("app data dir");
             std::fs::create_dir_all(&dir)?;
             let db_path = dir.join("life-os.db");
 
-            let conn = db::open(&db_path).map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
+            let conn =
+                db::open(&db_path).map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
             app.manage(db::Db(Mutex::new(conn)));
             app.manage(ai::Ollama::from_env());
             Ok(())

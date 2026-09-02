@@ -6,9 +6,9 @@
 //! whose signature changed on rebuild) we fail loudly instead of overwriting the
 //! stored key, which would silently orphan the existing encrypted database.
 //!
-//! For development, `LIFEOS_DEV_KEY` (64 hex chars) overrides the keychain so
-//! repeated rebuilds keep opening the same DB. Production builds have a stable
-//! signature and use the keychain unchanged.
+//! Debug builds accept `LIFEOS_DEV_KEY` (64 hex chars) as a keychain override so
+//! repeated rebuilds keep opening the same DB. It is compiled out of release
+//! builds: production always uses the keychain.
 
 use keyring::Entry;
 use rand::RngCore;
@@ -25,11 +25,15 @@ fn random_hex_key() -> String {
 /// Returns the raw DB key as 64 hex chars, creating and storing it on first run.
 pub fn get_or_create_key() -> Result<String, String> {
     // Dev override: a fixed key lets rebuilt (re-signed) binaries reuse the DB.
-    if let Ok(k) = std::env::var("LIFEOS_DEV_KEY") {
-        if k.len() == 64 && k.bytes().all(|b| b.is_ascii_hexdigit()) {
-            return Ok(k);
+    // Debug builds only — this must never be reachable in a production binary.
+    #[cfg(debug_assertions)]
+    {
+        if let Ok(k) = std::env::var("LIFEOS_DEV_KEY") {
+            if k.len() == 64 && k.bytes().all(|b| b.is_ascii_hexdigit()) {
+                return Ok(k);
+            }
+            return Err("LIFEOS_DEV_KEY must be 64 hex characters".to_string());
         }
-        return Err("LIFEOS_DEV_KEY must be 64 hex characters".to_string());
     }
 
     let entry = Entry::new(SERVICE, ACCOUNT).map_err(|e| e.to_string())?;

@@ -157,6 +157,8 @@ function IntentionRow({
     try {
       await setIntentionPriority(it.id, next);
       onChange();
+    } catch (e) {
+      toaster.create({ type: "error", title: "Oups", description: humanError(e) });
     } finally {
       setSaving(false);
     }
@@ -202,8 +204,12 @@ function IntentionRow({
         sm
         ghost
         onClick={async () => {
-          await archiveIntention(it.id);
-          onChange();
+          try {
+            await archiveIntention(it.id);
+            onChange();
+          } catch (e) {
+            toaster.create({ type: "error", title: "Oups", description: humanError(e) });
+          }
         }}
       >
         ✕

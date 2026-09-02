@@ -14,10 +14,20 @@ fn priority_label(p: &str) -> &str {
     }
 }
 
+/// First 10 chars of an RFC3339 timestamp (the `YYYY-MM-DD` day part).
+/// Char-boundary safe: a malformed or multi-byte string falls back to the
+/// whole value instead of panicking mid-export.
+fn day(s: &str) -> &str {
+    s.get(..10).unwrap_or(s)
+}
+
 /// Assemble all user data into a single Markdown document (open, portable format).
 pub fn export_markdown(conn: &Connection) -> Result<String, ApiError> {
     let mut out = String::new();
-    out.push_str(&format!("# Life OS — export\n\n_{}_\n", Utc::now().to_rfc3339()));
+    out.push_str(&format!(
+        "# Life OS — export\n\n_{}_\n",
+        Utc::now().to_rfc3339()
+    ));
 
     // Compass
     out.push_str("\n## Ta boussole\n");
@@ -25,10 +35,23 @@ pub fn export_markdown(conn: &Connection) -> Result<String, ApiError> {
         "SELECT id, name, status FROM domains WHERE deleted_at IS NULL ORDER BY sort_order, created_at",
     )?;
     let domains = dstmt
-        .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?)))?
+        .query_map([], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, String>(2)?,
+            ))
+        })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
     for (id, name, status) in &domains {
-        out.push_str(&format!("\n### {name}{}\n", if status == "archived" { " (mis de côté)" } else { "" }));
+        out.push_str(&format!(
+            "\n### {name}{}\n",
+            if status == "archived" {
+                " (mis de côté)"
+            } else {
+                ""
+            }
+        ));
         let mut istmt = conn.prepare(
             "SELECT statement, situation, action, priority, status FROM intentions
              WHERE domain_id = ?1 AND deleted_at IS NULL ORDER BY created_at",
@@ -52,7 +75,11 @@ pub fn export_markdown(conn: &Connection) -> Result<String, ApiError> {
             out.push_str(&format!(
                 "- [{}] {marker}{}\n",
                 priority_label(&priority),
-                if status == "archived" { " _(mise de côté)_" } else { "" }
+                if status == "archived" {
+                    " _(mise de côté)_"
+                } else {
+                    ""
+                }
             ));
         }
     }
@@ -86,19 +113,29 @@ pub fn export_markdown(conn: &Connection) -> Result<String, ApiError> {
         let mut xstmt = conn.prepare(
             "SELECT op, payload_statement FROM deltas WHERE decision_id = ?1 AND deleted_at IS NULL ORDER BY created_at",
         )?;
-        for row in xstmt.query_map([id], |r| Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?)))? {
+        for row in xstmt.query_map([id], |r| {
+            Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?))
+        })? {
             let (op, stmt) = row?;
-            out.push_str(&format!("- Ce que ça change : {op} — {}\n", stmt.unwrap_or_default()));
+            out.push_str(&format!(
+                "- Ce que ça change : {op} — {}\n",
+                stmt.unwrap_or_default()
+            ));
         }
         let mut sstmt = conn.prepare(
             "SELECT title, when_cue FROM stories WHERE decision_id = ?1 AND deleted_at IS NULL ORDER BY created_at",
         )?;
-        for row in sstmt.query_map([id], |r| Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?)))? {
+        for row in sstmt.query_map([id], |r| {
+            Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?))
+        })? {
             let (t, when) = row?;
-            out.push_str(&format!("- Prochain pas : {t}{}\n", when.map(|w| format!(" ({w})")).unwrap_or_default()));
+            out.push_str(&format!(
+                "- Prochain pas : {t}{}\n",
+                when.map(|w| format!(" ({w})")).unwrap_or_default()
+            ));
         }
         if let Some(rv) = review_at {
-            out.push_str(&format!("- Point prévu : {}\n", &rv[..rv.len().min(10)]));
+            out.push_str(&format!("- Point prévu : {}\n", day(rv)));
         }
     }
 
@@ -111,11 +148,16 @@ pub fn export_markdown(conn: &Connection) -> Result<String, ApiError> {
         .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?
         .collect::<rusqlite::Result<Vec<_>>>()?;
     for (id, created) in &reviews {
-        out.push_str(&format!("\n### {}\n", &created[..created.len().min(10)]));
+        out.push_str(&format!("\n### {}\n", day(created)));
         let mut istmt = conn.prepare(
             "SELECT outcome, learning FROM review_items WHERE review_id = ?1 AND deleted_at IS NULL ORDER BY created_at",
         )?;
-        for row in istmt.query_map([id], |r| Ok((r.get::<_, Option<String>>(0)?, r.get::<_, Option<String>>(1)?)))? {
+        for row in istmt.query_map([id], |r| {
+            Ok((
+                r.get::<_, Option<String>>(0)?,
+                r.get::<_, Option<String>>(1)?,
+            ))
+        })? {
             let (outcome, learning) = row?;
             out.push_str(&format!(
                 "- {}{}\n",
@@ -132,7 +174,7 @@ pub fn export_markdown(conn: &Connection) -> Result<String, ApiError> {
     )?;
     for row in cstmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))? {
         let (created, content) = row?;
-        out.push_str(&format!("- {} — {content}\n", &created[..created.len().min(10)]));
+        out.push_str(&format!("- {} — {content}\n", day(&created)));
     }
 
     Ok(out)

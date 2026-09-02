@@ -8,6 +8,12 @@
 - [x] 1.5 `SECURITY.md` (real threat model + private reporting)
 
 ## 2. desktop-ui design system
+> Note: `redesign-conversational-ui` later replaced the dashboard shell with a
+> guided conversation. The token system (2.1), native feel (2.2), and unified
+> controls (2.3) survive and are used by the new front-end; the sidebar-specific
+> work (the "needle" active state and the 2.4 sidebar/stepper disambiguation) was
+> superseded when the always-visible sidebar was dropped. Tasks stay checked —
+> they were genuinely done for the UI that existed at the time.
 - [x] 2.1 Token system (cool paper + deep-teal accent, type scale, radii, motion), light + dark
 - [x] 2.2 Native feel: no chrome text-select, no overscroll, focus-visible rings, themed scrollbars, reduced-motion
 - [x] 2.3 Unified controls (buttons/fields/messages), sidebar "needle" active state, polished cards & empty states

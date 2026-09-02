@@ -38,13 +38,16 @@ pub fn set_story_status(conn: &Connection, id: &str, status: &str) -> Result<(),
     if !STATUSES.contains(&status) {
         return Err(ApiError::invalid(format!("état inconnu: {status}")));
     }
-    let now = Utc::now().to_rfc3339();
-    conn.execute(
-        "UPDATE stories SET status = ?2, updated_at = ?3 WHERE id = ?1 AND deleted_at IS NULL",
-        params![id, status, now],
-    )?;
-    events::record(conn, "story.status_set", "story", id, Some(status))?;
-    Ok(())
+    super::with_tx(conn, |conn| {
+        let now = Utc::now().to_rfc3339();
+        let n = conn.execute(
+            "UPDATE stories SET status = ?2, updated_at = ?3 WHERE id = ?1 AND deleted_at IS NULL",
+            params![id, status, now],
+        )?;
+        super::require_affected(n, "ce petit pas n'existe plus")?;
+        events::record(conn, "story.status_set", "story", id, Some(status))?;
+        Ok(())
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -61,28 +64,32 @@ pub fn add_if_then(
     let cue = cue.trim();
     let action = action.trim();
     if cue.is_empty() || action.is_empty() {
-        return Err(ApiError::invalid("il faut un « si » et un « alors »".to_string()));
+        return Err(ApiError::invalid(
+            "il faut un « si » et un « alors »".to_string(),
+        ));
     }
-    let now = Utc::now().to_rfc3339();
-    let id = Uuid::new_v4().to_string();
-    conn.execute(
-        "INSERT INTO if_then_plans
-           (id, story_id, decision_id, wish, outcome, obstacle, cue, action, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?9)",
-        params![id, story_id, decision_id, wish, outcome, obstacle, cue, action, now],
-    )?;
-    events::record(conn, "if_then.added", "story", story_id, Some(cue))?;
-    Ok(IfThenPlan {
-        id,
-        story_id: Some(story_id.to_string()),
-        decision_id: decision_id.map(str::to_string),
-        wish: wish.map(str::to_string),
-        outcome: outcome.map(str::to_string),
-        obstacle: obstacle.map(str::to_string),
-        cue: cue.to_string(),
-        action: action.to_string(),
-        created_at: now.clone(),
-        updated_at: now,
+    super::with_tx(conn, |conn| {
+        let now = Utc::now().to_rfc3339();
+        let id = Uuid::new_v4().to_string();
+        conn.execute(
+            "INSERT INTO if_then_plans
+               (id, story_id, decision_id, wish, outcome, obstacle, cue, action, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?9)",
+            params![id, story_id, decision_id, wish, outcome, obstacle, cue, action, now],
+        )?;
+        events::record(conn, "if_then.added", "story", story_id, Some(cue))?;
+        Ok(IfThenPlan {
+            id,
+            story_id: Some(story_id.to_string()),
+            decision_id: decision_id.map(str::to_string),
+            wish: wish.map(str::to_string),
+            outcome: outcome.map(str::to_string),
+            obstacle: obstacle.map(str::to_string),
+            cue: cue.to_string(),
+            action: action.to_string(),
+            created_at: now.clone(),
+            updated_at: now,
+        })
     })
 }
 

@@ -57,26 +57,33 @@ pub fn create_domain(conn: &Connection, name: &str) -> Result<Domain, ApiError> 
     if name.is_empty() {
         return Err(ApiError::invalid("le nom est vide".to_string()));
     }
-    if active_domain_count(conn)? >= DOMAIN_ACTIVE_CAP {
-        return Err(ApiError::cap_reached(
-            "Tu as déjà assez de pans de vie. Retires-en un avant d'en ajouter.".to_string(),
-        ));
-    }
-    let now = Utc::now().to_rfc3339();
-    let id = Uuid::new_v4().to_string();
-    conn.execute(
-        "INSERT INTO domains (id, name, sort_order, status, created_at, updated_at)
-         VALUES (?1, ?2, (SELECT COALESCE(MAX(sort_order)+1,0) FROM domains), 'active', ?3, ?3)",
-        params![id, name, now],
-    )?;
-    events::record(conn, "domain.created", "domain", &id, Some(name))?;
-    Ok(Domain {
-        id,
-        name: name.to_string(),
-        sort_order: 0,
-        status: "active".into(),
-        created_at: now.clone(),
-        updated_at: now,
+    super::with_tx(conn, |conn| {
+        if active_domain_count(conn)? >= DOMAIN_ACTIVE_CAP {
+            return Err(ApiError::cap_reached(
+                "Tu as déjà assez de pans de vie. Retires-en un avant d'en ajouter.".to_string(),
+            ));
+        }
+        let now = Utc::now().to_rfc3339();
+        let id = Uuid::new_v4().to_string();
+        conn.execute(
+            "INSERT INTO domains (id, name, sort_order, status, created_at, updated_at)
+             VALUES (?1, ?2, (SELECT COALESCE(MAX(sort_order)+1,0) FROM domains), 'active', ?3, ?3)",
+            params![id, name, now],
+        )?;
+        let sort_order: i64 = conn.query_row(
+            "SELECT sort_order FROM domains WHERE id = ?1",
+            params![id],
+            |r| r.get(0),
+        )?;
+        events::record(conn, "domain.created", "domain", &id, Some(name))?;
+        Ok(Domain {
+            id,
+            name: name.to_string(),
+            sort_order,
+            status: "active".into(),
+            created_at: now.clone(),
+            updated_at: now,
+        })
     })
 }
 
@@ -85,23 +92,29 @@ pub fn rename_domain(conn: &Connection, id: &str, name: &str) -> Result<(), ApiE
     if name.is_empty() {
         return Err(ApiError::invalid("le nom est vide".to_string()));
     }
-    let now = Utc::now().to_rfc3339();
-    conn.execute(
-        "UPDATE domains SET name=?2, updated_at=?3 WHERE id=?1 AND deleted_at IS NULL",
-        params![id, name, now],
-    )?;
-    events::record(conn, "domain.renamed", "domain", id, Some(name))?;
-    Ok(())
+    super::with_tx(conn, |conn| {
+        let now = Utc::now().to_rfc3339();
+        let n = conn.execute(
+            "UPDATE domains SET name=?2, updated_at=?3 WHERE id=?1 AND deleted_at IS NULL",
+            params![id, name, now],
+        )?;
+        super::require_affected(n, "ce pan de vie n'existe plus")?;
+        events::record(conn, "domain.renamed", "domain", id, Some(name))?;
+        Ok(())
+    })
 }
 
 pub fn archive_domain(conn: &Connection, id: &str) -> Result<(), ApiError> {
-    let now = Utc::now().to_rfc3339();
-    conn.execute(
-        "UPDATE domains SET status='archived', updated_at=?2 WHERE id=?1",
-        params![id, now],
-    )?;
-    events::record(conn, "domain.archived", "domain", id, None)?;
-    Ok(())
+    super::with_tx(conn, |conn| {
+        let now = Utc::now().to_rfc3339();
+        let n = conn.execute(
+            "UPDATE domains SET status='archived', updated_at=?2 WHERE id=?1 AND deleted_at IS NULL",
+            params![id, now],
+        )?;
+        super::require_affected(n, "ce pan de vie n'existe plus")?;
+        events::record(conn, "domain.archived", "domain", id, None)?;
+        Ok(())
+    })
 }
 
 // --- Intentions -----------------------------------------------------------
@@ -151,39 +164,43 @@ pub fn create_intention(
 ) -> Result<Intention, ApiError> {
     let statement = statement.trim();
     if statement.is_empty() {
-        return Err(ApiError::invalid("dis-moi ce qui compte pour toi".to_string()));
-    }
-    check_priority(priority)?;
-    if active_intention_count(conn, domain_id)? >= INTENTION_ACTIVE_CAP {
-        return Err(ApiError::cap_reached(
-            "Ce pan est déjà bien rempli. Retire une intention avant d'en ajouter.".to_string(),
+        return Err(ApiError::invalid(
+            "dis-moi ce qui compte pour toi".to_string(),
         ));
     }
-    let now = Utc::now().to_rfc3339();
-    let id = Uuid::new_v4().to_string();
-    conn.execute(
-        "INSERT INTO intentions
-           (id, domain_id, statement, situation, action, priority, status, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'active', ?7, ?7)",
-        params![id, domain_id, statement, situation, action, priority, now],
-    )?;
-    events::record(conn, "intention.created", "intention", &id, Some(statement))?;
-    // Remember it for later recall (keyword now, embedding on backfill).
-    let mem = match (situation, action) {
-        (Some(s), Some(a)) => format!("{statement} — quand {s}, je {a}"),
-        _ => statement.to_string(),
-    };
-    let _ = crate::db::repo::memory::write_chunk(conn, &mem, "intention", Some(&id));
-    Ok(Intention {
-        id,
-        domain_id: domain_id.to_string(),
-        statement: statement.to_string(),
-        situation: situation.map(|s| s.to_string()),
-        action: action.map(|s| s.to_string()),
-        priority: priority.to_string(),
-        status: "active".into(),
-        created_at: now.clone(),
-        updated_at: now,
+    check_priority(priority)?;
+    super::with_tx(conn, |conn| {
+        if active_intention_count(conn, domain_id)? >= INTENTION_ACTIVE_CAP {
+            return Err(ApiError::cap_reached(
+                "Ce pan est déjà bien rempli. Retire une intention avant d'en ajouter.".to_string(),
+            ));
+        }
+        let now = Utc::now().to_rfc3339();
+        let id = Uuid::new_v4().to_string();
+        conn.execute(
+            "INSERT INTO intentions
+               (id, domain_id, statement, situation, action, priority, status, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'active', ?7, ?7)",
+            params![id, domain_id, statement, situation, action, priority, now],
+        )?;
+        events::record(conn, "intention.created", "intention", &id, Some(statement))?;
+        // Remember it for later recall (keyword now, embedding on backfill).
+        let mem = match (situation, action) {
+            (Some(s), Some(a)) => format!("{statement} — quand {s}, je {a}"),
+            _ => statement.to_string(),
+        };
+        let _ = crate::db::repo::memory::write_chunk(conn, &mem, "intention", Some(&id));
+        Ok(Intention {
+            id,
+            domain_id: domain_id.to_string(),
+            statement: statement.to_string(),
+            situation: situation.map(|s| s.to_string()),
+            action: action.map(|s| s.to_string()),
+            priority: priority.to_string(),
+            status: "active".into(),
+            created_at: now.clone(),
+            updated_at: now,
+        })
     })
 }
 
@@ -196,35 +213,52 @@ pub fn update_intention(
 ) -> Result<(), ApiError> {
     let statement = statement.trim();
     if statement.is_empty() {
-        return Err(ApiError::invalid("dis-moi ce qui compte pour toi".to_string()));
+        return Err(ApiError::invalid(
+            "dis-moi ce qui compte pour toi".to_string(),
+        ));
     }
-    let now = Utc::now().to_rfc3339();
-    conn.execute(
-        "UPDATE intentions SET statement=?2, situation=?3, action=?4, updated_at=?5
-         WHERE id=?1 AND deleted_at IS NULL",
-        params![id, statement, situation, action, now],
-    )?;
-    events::record(conn, "intention.updated", "intention", id, None)?;
-    Ok(())
+    super::with_tx(conn, |conn| {
+        let now = Utc::now().to_rfc3339();
+        let n = conn.execute(
+            "UPDATE intentions SET statement=?2, situation=?3, action=?4, updated_at=?5
+             WHERE id=?1 AND deleted_at IS NULL",
+            params![id, statement, situation, action, now],
+        )?;
+        super::require_affected(n, "cette intention n'existe plus")?;
+        events::record(conn, "intention.updated", "intention", id, None)?;
+        Ok(())
+    })
 }
 
 pub fn set_intention_priority(conn: &Connection, id: &str, priority: &str) -> Result<(), ApiError> {
     check_priority(priority)?;
-    let now = Utc::now().to_rfc3339();
-    conn.execute(
-        "UPDATE intentions SET priority=?2, updated_at=?3 WHERE id=?1 AND deleted_at IS NULL",
-        params![id, priority, now],
-    )?;
-    events::record(conn, "intention.reprioritized", "intention", id, Some(priority))?;
-    Ok(())
+    super::with_tx(conn, |conn| {
+        let now = Utc::now().to_rfc3339();
+        let n = conn.execute(
+            "UPDATE intentions SET priority=?2, updated_at=?3 WHERE id=?1 AND deleted_at IS NULL",
+            params![id, priority, now],
+        )?;
+        super::require_affected(n, "cette intention n'existe plus")?;
+        events::record(
+            conn,
+            "intention.reprioritized",
+            "intention",
+            id,
+            Some(priority),
+        )?;
+        Ok(())
+    })
 }
 
 pub fn archive_intention(conn: &Connection, id: &str) -> Result<(), ApiError> {
-    let now = Utc::now().to_rfc3339();
-    conn.execute(
-        "UPDATE intentions SET status='archived', updated_at=?2 WHERE id=?1",
-        params![id, now],
-    )?;
-    events::record(conn, "intention.archived", "intention", id, None)?;
-    Ok(())
+    super::with_tx(conn, |conn| {
+        let now = Utc::now().to_rfc3339();
+        let n = conn.execute(
+            "UPDATE intentions SET status='archived', updated_at=?2 WHERE id=?1 AND deleted_at IS NULL",
+            params![id, now],
+        )?;
+        super::require_affected(n, "cette intention n'existe plus")?;
+        events::record(conn, "intention.archived", "intention", id, None)?;
+        Ok(())
+    })
 }

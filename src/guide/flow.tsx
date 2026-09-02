@@ -65,27 +65,34 @@ export function useFlow(script: (flow: Flow) => Promise<void>) {
     if (started.current) return;
     started.current = true;
 
-    const push = (t: Turn) => setTurns((x) => [...x, t]);
-    const patch = (id: string, fn: (t: Turn) => Turn) =>
-      setTurns((x) => x.map((t) => (t.id === id ? fn(t) : t)));
+    let cancelled = false;
+    const push = (t: Turn) => {
+      if (!cancelled) setTurns((x) => [...x, t]);
+    };
+    const patch = (id: string, fn: (t: Turn) => Turn) => {
+      if (!cancelled) setTurns((x) => x.map((t) => (t.id === id ? fn(t) : t)));
+    };
 
     const typing = async (delay: number) => {
       const id = uid();
-      push({ kind: "typing", id });
+      if (!cancelled) push({ kind: "typing", id });
       await sleep(delay);
-      setTurns((x) => x.filter((t) => t.id !== id));
+      if (!cancelled) setTurns((x) => x.filter((t) => t.id !== id));
     };
 
     const flow: Flow = {
       echo: (text) => push({ kind: "user", id: uid(), text }),
 
       say: async (content, opts) => {
+        if (cancelled) return;
         await typing(opts?.delay ?? 550);
+        if (cancelled) return;
         push({ kind: "assistant", id: uid(), content });
       },
 
       ask: (options, opts) =>
         new Promise<string>(async (resolve) => {
+          if (cancelled) return;
           if (opts?.prompt) await flow.say(opts.prompt);
           const id = uid();
           push({
@@ -102,6 +109,7 @@ export function useFlow(script: (flow: Flow) => Promise<void>) {
 
       input: (opts) =>
         new Promise<string>(async (resolve) => {
+          if (cancelled) return;
           if (opts?.prompt) await flow.say(opts.prompt);
           const id = uid();
           push({
@@ -120,8 +128,10 @@ export function useFlow(script: (flow: Flow) => Promise<void>) {
 
       widget: (render) =>
         new Promise<void>((resolve) => {
+          if (cancelled) return;
           const id = uid();
           const done = (echo?: string) => {
+            if (cancelled) return;
             patch(id, (t) => ({ ...(t as any), answered: true }));
             if (echo) push({ kind: "user", id: uid(), text: echo });
             resolve();

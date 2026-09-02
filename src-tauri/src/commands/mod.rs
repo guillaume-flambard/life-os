@@ -466,7 +466,7 @@ pub fn export_data(db: State<'_, Db>) -> Result<String, ApiError> {
     let dir = if downloads.is_dir() { downloads } else { std::path::PathBuf::from(&home) };
     let name = format!("life-os-export-{}.md", chrono::Utc::now().format("%Y%m%d-%H%M%S"));
     let path = dir.join(name);
-    std::fs::write(&path, markdown).map_err(|e| ApiError::db(e))?;
+    std::fs::write(&path, markdown).map_err(ApiError::db)?;
     Ok(path.to_string_lossy().into_owned())
 }
 
@@ -492,6 +492,7 @@ pub fn set_story_status(db: State<'_, Db>, id: String, status: String) -> Result
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)] // the signature mirrors the JS call
 pub fn story_add_if_then(
     db: State<'_, Db>,
     story_id: String,
@@ -569,7 +570,7 @@ pub fn sync_export(db: State<'_, Db>, passphrase: String) -> Result<String, ApiE
         let conn = db.0.lock().unwrap();
         sync::export_json(&conn)?
     };
-    let bytes = serde_json::to_vec(&snapshot).map_err(|e| ApiError::db(e))?;
+    let bytes = serde_json::to_vec(&snapshot).map_err(ApiError::db)?;
     let encrypted = sync::encrypt(&bytes, &passphrase).map_err(ApiError::invalid)?;
 
     let home = std::env::var("HOME").map_err(|_| ApiError::invalid("dossier utilisateur introuvable".to_string()))?;
@@ -577,7 +578,7 @@ pub fn sync_export(db: State<'_, Db>, passphrase: String) -> Result<String, ApiE
     let dir = if downloads.is_dir() { downloads } else { std::path::PathBuf::from(&home) };
     let name = format!("life-os-sync-{}.age", chrono::Utc::now().format("%Y%m%d-%H%M%S"));
     let path = dir.join(name);
-    std::fs::write(&path, encrypted).map_err(|e| ApiError::db(e))?;
+    std::fs::write(&path, encrypted).map_err(ApiError::db)?;
     Ok(path.to_string_lossy().into_owned())
 }
 
