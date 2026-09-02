@@ -929,4 +929,93 @@ mod tests {
         );
         assert_eq!(compass::list_domains(&conn).unwrap()[0].name, "Mes proches");
     }
+
+    #[tokio::test]
+    #[ignore = "requires a running Ollama with LIFEOS_MODEL pulled"]
+    async fn live_guided_decision_end_to_end() {
+        // The full guided path against a real model and a real DB file — the
+        // exact sequence `branchDecision` drives through the commands: open,
+        // AI-suggested options + explicit null, choose, pre-mortem, 10/10/10,
+        // why, compass alignment (AI), confidence, AI-suggested step, finalize.
+        use crate::ai::Ollama;
+        use repo::{compass, decision};
+        register_vec();
+        let path = std::env::temp_dir().join(format!("life-os-e2e-{}.db", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+        let conn = Connection::open(&path).unwrap();
+        migrate(&conn).unwrap();
+
+        // A compass with one intention, so alignment has something to read.
+        let dom = compass::create_domain(&conn, "Santé").unwrap();
+        compass::create_intention(&conn, &dom.id, "Bouger tous les jours", Some("mon réveil sonne"), Some("je sors marcher 10 minutes"), "should").unwrap();
+
+        let ai = Ollama::from_env();
+        assert!(ai.health().await.ok, "Ollama injoignable");
+
+        let d = decision::open_decision(&conn, "comment tenir le sport sur une année ?").unwrap();
+
+        // 1) AI widens the doors; the flow keeps the non-empty ones.
+        let suggested = ai
+            .suggest_options("comment tenir le sport sur une année ?", None)
+            .await
+            .expect("suggest_options failed");
+        let real: Vec<String> = suggested
+            .options
+            .into_iter()
+            .filter(|o| !o.trim().is_empty())
+            .take(4)
+            .collect();
+        assert!(real.len() >= 2, "expected >=2 AI options, got {}", real.len());
+
+        // 2) Persist them + the explicit null option, exactly like the flow.
+        let mut opts = Vec::new();
+        for label in &real {
+            opts.push(decision::add_option(&conn, &d.id, label, false).unwrap());
+        }
+        opts.push(decision::add_option(&conn, &d.id, "Aucune de celles-là", true).unwrap());
+        assert!(opts.len() >= 3);
+
+        // 3) Weigh one, then debias it.
+        let chosen = &opts[0];
+        decision::choose_option(&conn, &d.id, &chosen.id).unwrap();
+        decision::set_option_premortem(&conn, &chosen.id, "j'ai visé sept séances par semaine et tout lâché au mois de février").unwrap();
+        decision::set_distance(&conn, &d.id, "10 min: motivé; 10 mois: ça tient; 10 ans: une habitude").unwrap();
+        decision::set_why(&conn, &d.id, "de l'énergie pour les gens que j'aime").unwrap();
+
+        // 4) Alignment against the compass (real model), then confidence.
+        let intentions = "Bouger tous les jours";
+        let note = ai
+            .align_values(&chosen.label, intentions, None)
+            .await
+            .expect("align_values failed");
+        assert!(!note.note.trim().is_empty(), "empty alignment note");
+        decision::set_alignment(&conn, &d.id, &note.note).unwrap();
+        decision::set_confidence(&conn, &d.id, 4).unwrap();
+
+        // 5) One tiny first step (real model), then close the session.
+        let step = ai
+            .generate_story(&format!("{} — {}", d.title, chosen.label), None)
+            .await
+            .expect("generate_story failed");
+        decision::add_story(&conn, &d.id, &step.title, step.why.as_deref(), None, None).unwrap();
+
+        let finalized = decision::finalize(&conn, &d.id).unwrap();
+        assert_eq!(finalized.status, "proposed");
+        assert!(finalized.values_alignment_note.is_some());
+
+        // The outcome is remembered for later recall.
+        let remembered: i64 = conn
+            .query_row(
+                "SELECT count(*) FROM memory_chunks WHERE source_type='decision' AND source_id=?1",
+                [&d.id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert!(remembered >= 1, "the finalized decision was not remembered");
+
+        drop(conn);
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(format!("{}-wal", path.display()));
+        let _ = std::fs::remove_file(format!("{}-shm", path.display()));
+    }
 }
