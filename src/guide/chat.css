@@ -149,6 +149,18 @@
 .cv-send:not(:disabled):hover {
   transform: scale(1.05);
 }
+.cv-send.with-label {
+  width: auto;
+  border-radius: 999px;
+  padding: 0 13px 0 15px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
 
 /* --- reasoning timeline (monochrome, in the thread) --- */
 .rs {

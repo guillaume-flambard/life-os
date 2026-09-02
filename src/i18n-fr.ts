@@ -48,6 +48,8 @@ registerFr({
     "Faire le point, c'est regarder — pas se juger. Qu'est-ce que tu retiens, là ?",
   "What moved, what you learned…": "Ce qui a bougé, ce que tu apprends…",
   "Keep": "Garder",
+  "Save": "Enregistrer",
+  "Ok": "Ok",
   "Kept. That's already one step back.": "Gardé. C'est déjà un pas de recul.",
   "I couldn't keep it": "Je n'ai pas réussi à le garder",
   "We'll try again.": "On réessaiera.",
