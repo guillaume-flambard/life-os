@@ -1,6 +1,6 @@
 {
   "name": "life-os",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Local-first, spec-driven life coach. Human mode by default, expert mode optional.",
   "license": "AGPL-3.0-or-later",
   "type": "module",
