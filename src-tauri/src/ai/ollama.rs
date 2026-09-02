@@ -51,9 +51,9 @@ impl Ollama {
             .send()
             .await
         {
-            Ok(r) if r.status().is_success() => Health::ok(format!("Ollama prêt ({})", self.model)),
-            Ok(r) => Health::ko(format!("Ollama a répondu {}", r.status())),
-            Err(_) => Health::ko("Ollama injoignable (lance `ollama serve`)".to_string()),
+            Ok(r) if r.status().is_success() => Health::ok(format!("Ollama ready ({})", self.model)),
+            Ok(r) => Health::ko(format!("Ollama responded {}", r.status())),
+            Err(_) => Health::ko("Ollama unreachable (run `ollama serve`)".to_string()),
         }
     }
 
@@ -93,7 +93,7 @@ impl Ollama {
             if let Some(app) = app {
                 let _ = app.emit("ai-reasoning-end", json!({}));
             }
-            return Err(format!("Ollama a répondu {}", resp.status()));
+            return Err(format!("Ollama responded {}", resp.status()));
         }
 
         let Some(app) = app else {
@@ -101,7 +101,7 @@ impl Ollama {
             let v: Value = resp.json().await.map_err(|e| e.to_string())?;
             let content = v["message"]["content"]
                 .as_str()
-                .ok_or("réponse sans contenu")?;
+                .ok_or("response without content")?;
             return serde_json::from_str::<Value>(content).map_err(|e| e.to_string());
         };
 
@@ -145,7 +145,7 @@ impl Ollama {
         let schema: Value = serde_json::from_str(DELTA_SCHEMA).map_err(|e| e.to_string())?;
         let raw = self
             .chat_json(
-                "Tu produis un unique changement (op added/modified/removed) au format JSON.",
+                "You produce a single change (op added/modified/removed) as JSON. Write the statement, situation and action in the language the person wrote in.",
                 situation,
                 schema,
                 None,
@@ -164,8 +164,8 @@ impl Ollama {
         let schema: Value = serde_json::from_str(INTENTION_SCHEMA).map_err(|e| e.to_string())?;
         let raw = self
             .chat_json(
-                "Reformule ce que dit la personne en un repère testable. Réponds en JSON avec \
-                 'situation' (quand…) et 'action' (je…), dans sa langue, sans jargon.",
+                "Rephrase what the person says into one testable marker. Answer in JSON with \
+                 'situation' (when…) and 'action' (I…), in their language, no jargon.",
                 text,
                 schema,
                 app,
@@ -184,9 +184,9 @@ impl Ollama {
         let schema: Value = serde_json::from_str(OPTIONS_SCHEMA).map_err(|e| e.to_string())?;
         let raw = self
             .chat_json(
-                "Propose au moins trois options pour cette décision, dont une du type \
-                 « et si aucune de ces options ? ». N'impose rien, ne dis jamais « tu devrais ». \
-                 Réponds en JSON { options: [...] } dans la langue de la personne.",
+                "Propose at least three options for this decision, including one of the \
+                 'what if none of these?' kind. Never impose anything, never say 'you should'. \
+                 Answer in JSON { options: [...] }, in the language of the person.",
                 context,
                 schema,
                 app,
@@ -206,13 +206,13 @@ impl Ollama {
     ) -> Result<AlignmentNote, String> {
         let schema: Value = serde_json::from_str(ALIGN_SCHEMA).map_err(|e| e.to_string())?;
         let user = format!(
-            "Option envisagée : {option}\n\nCe qui compte pour la personne :\n{intentions}"
+            "Option being weighed: {option}\n\nWhat matters to the person:\n{intentions}"
         );
         let raw = self
             .chat_json(
-                "Dis, en mots simples, en quoi cette option COLLE avec ce qui compte pour la \
-                 personne ET en quoi elle TIRE CONTRE. Nomme toujours les deux côtés. Exprime ton \
-                 incertitude. Ne dis jamais « tu devrais ». Réponds en JSON { note: \"...\" }.",
+                "Say, in plain words, how this option FITS what matters to the person AND where \
+                 it PULLS AGAINST. Always name both sides. Express your uncertainty. Never say \
+                 'you should'. Answer in JSON { note: '...' }, in the person's language.",
                 &user,
                 schema,
                 app,
@@ -230,9 +230,9 @@ impl Ollama {
         let schema: Value = serde_json::from_str(STORY_SCHEMA).map_err(|e| e.to_string())?;
         let raw = self
             .chat_json(
-                "Propose UN prochain petit pas, auto-suffisant, avec son contexte : titre, \
-                 pourquoi, quand (un déclencheur concret), et à quoi on saura que c'est fait. \
-                 Réponds en JSON { title, why, when_cue, done_when } dans la langue de la personne.",
+                "Propose ONE next small step, self-contained, with its context: title, why, \
+                 when (a concrete trigger), and how we'll know it's done. Answer in JSON \
+                 { title, why, when_cue, done_when }, in the person's language.",
                 context,
                 schema,
                 app,
@@ -254,17 +254,17 @@ impl Ollama {
             .await
             .map_err(|e| e.to_string())?;
         if !resp.status().is_success() {
-            return Err(format!("Ollama a répondu {}", resp.status()));
+            return Err(format!("Ollama responded {}", resp.status()));
         }
         let v: Value = resp.json().await.map_err(|e| e.to_string())?;
         let emb = v["embeddings"][0]
             .as_array()
-            .ok_or("réponse d'embedding vide")?
+            .ok_or("empty embedding response")?
             .iter()
             .map(|x| x.as_f64().unwrap_or(0.0) as f32)
             .collect::<Vec<f32>>();
         if emb.is_empty() {
-            return Err("embedding vide".to_string());
+            return Err("empty embedding".to_string());
         }
         Ok(emb)
     }
@@ -286,9 +286,9 @@ impl Ollama {
         );
         let raw = self
             .chat_json(
-                "S'il y a une tension entre ce que la personne envisage et son histoire, pose UNE \
-                 seule question douce et ouverte, jamais un jugement, jamais « tu devrais ». S'il \
-                 n'y a pas de tension, renvoie une question vide. JSON { question }.",
+                "If there is tension between what the person is weighing and their history, ask ONE \
+                 gentle, open question — never a judgement, never 'you should'. If there is no \
+                 tension, return an empty question. JSON { question }, in the person's language.",
                 &user,
                 schema,
                 None,
@@ -308,10 +308,10 @@ impl Ollama {
         let schema: Value = serde_json::from_str(WOOP_SCHEMA).map_err(|e| e.to_string())?;
         let raw = self
             .chat_json(
-                "Transforme ce pas en UNE intention d'implémentation. Donne un déclencheur \
-                 concret 'cue' (si …) et UNE action minuscule 'action' (alors …), plus si utile \
-                 wish/outcome/obstacle. Un seul si-alors, jamais une liste. JSON \
-                 { wish, outcome, obstacle, cue, action }, dans la langue de la personne.",
+                "Turn this step into ONE implementation intention. Give a concrete trigger 'cue' \
+                 (if …) and ONE tiny 'action' (then …), plus, if useful, wish/outcome/obstacle. \
+                 A single if-then, never a list. JSON \
+                 { wish, outcome, obstacle, cue, action }, in the person's language.",
                 context,
                 schema,
                 app,

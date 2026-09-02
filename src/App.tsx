@@ -1,10 +1,11 @@
 import { Box, Flex, Spinner, Stack, Text } from "@chakra-ui/react";
 import { useEffect, useState } from "react";
-import { getMode, isOnboarded, setMode as saveMode, type UiMode } from "./lib/ipc";
+import { getLang, getMode, isOnboarded, setMode as saveMode, setUiLang as saveLang, type UiMode } from "./lib/ipc";
 import { PageTransition } from "./ui/motion";
 import { useRoute, type Route } from "./ui/router";
 import { Header } from "./ui/Header";
 import { Toaster, toaster } from "./ui/toaster";
+import { setLang, t, type Lang } from "./i18n";
 import { Guide } from "./screens/Guide";
 import { Compass } from "./screens/Compass";
 import { Carnet } from "./screens/Carnet";
@@ -16,6 +17,8 @@ import { Distress } from "./screens/Distress";
 export interface Ctx {
   mode: UiMode;
   setMode: (m: UiMode) => void;
+  lang: Lang;
+  setLang: (l: Lang) => void;
 }
 
 function Screen({ route, ctx, onboarded, reveal }: {
@@ -48,14 +51,17 @@ export function App() {
   const [onboarded, setOnboarded] = useState(false);
   const [revealed, setRevealed] = useState(false);
   const [mode, setModeState] = useState<UiMode>("human");
+  const [lang, setLangState] = useState<Lang>("en");
 
   useEffect(() => {
     (async () => {
       try {
-        const [ob, m] = await Promise.all([isOnboarded(), getMode()]);
+        const [ob, m, l] = await Promise.all([isOnboarded(), getMode(), getLang()]);
         setOnboarded(ob);
         setRevealed(ob);
         setModeState(m);
+        setLangState(l);
+        setLang(l);
       } catch (e) {
         console.error("boot failed", e);
       } finally {
@@ -69,12 +75,23 @@ export function App() {
     saveMode(m).catch(() => {
       toaster.create({
         type: "error",
-        title: "Oups",
-        description: "Le mode n'a pas pu être mémorisé.",
+        title: t("Oops"),
+        description: t("The mode couldn't be remembered."),
       });
     });
   };
-  const ctx: Ctx = { mode, setMode };
+  const changeLang = (l: Lang) => {
+    setLangState(l);
+    setLang(l);
+    saveLang(l).catch(() => {
+      toaster.create({
+        type: "error",
+        title: t("Oops"),
+        description: t("The language couldn't be remembered."),
+      });
+    });
+  };
+  const ctx: Ctx = { mode, setMode, lang, setLang: changeLang };
   // Revealing also flips the onboarding state: without it, leaving home and
   // coming back would remount the guide with `onboarded=false` and replay the
   // whole first-run conversation.

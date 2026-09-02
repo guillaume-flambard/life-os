@@ -13,18 +13,19 @@ import { Card, PageHeader, Pill } from "../ui/primitives";
 import { Async, EmptyState, humanError, useAsync } from "../ui/states";
 import { navigate } from "../ui/router";
 import { IconCheck, IconPlus } from "../ui/icons";
+import { t } from "../i18n";
 
-const STATUS: Record<string, { label: string; active: boolean }> = {
-  draft: { label: "brouillon", active: false },
-  exploring: { label: "en réflexion", active: false },
-  proposed: { label: "prête", active: true },
-  applied: { label: "intégrée", active: true },
-  archived: { label: "rangée", active: false },
+const STATUS: Record<string, { label: () => string; active: boolean }> = {
+  draft: { label: () => t("draft"), active: false },
+  exploring: { label: () => t("exploring"), active: false },
+  proposed: { label: () => t("ready"), active: true },
+  applied: { label: () => t("integrated"), active: true },
+  archived: { label: () => t("set aside"), active: false },
 };
 
 function when(iso: string): string {
   try {
-    return new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
+    return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "long" });
   } catch {
     return "";
   }
@@ -36,18 +37,18 @@ export function Carnet({ ctx }: { ctx: Ctx }) {
 
   return (
     <>
-      <PageHeader title="Ton carnet" sub="Les décisions que tu as explorées, avec leur petit pas." />
+      <PageHeader title={t("Your notebook")} sub={t("The decisions you explored, with their small step.")} />
       <Async
         state={decisions}
         empty={(d) =>
           d.length === 0 ? (
             <EmptyState
               icon="📖"
-              title="Ton carnet est vide"
-              hint="Chaque décision que tu explores atterrit ici, avec son petit pas."
+              title={t("Your notebook is empty")}
+              hint={t("Every decision you explore lands here, with its small step.")}
               action={
                 <Btn primary onClick={() => navigate("home")}>
-                  <IconPlus boxSize="4" /> Explorer une décision
+                  <IconPlus boxSize="4" /> {t("Explore a decision")}
                 </Btn>
               }
             />
@@ -116,7 +117,7 @@ function DecisionCard({ decision: d, expert }: { decision: Decision; expert: boo
             {d.title}
           </Text>
           <HStack gap="2">
-            <Pill active={s.active}>{s.label}</Pill>
+            <Pill active={s.active}>{s.label()}</Pill>
             <Text fontSize="xs" color="fg.subtle">
               {when(d.updated_at)}
             </Text>
@@ -140,7 +141,7 @@ function DecisionCard({ decision: d, expert }: { decision: Decision; expert: boo
             {loading && (
               <HStack gap="2.5" py="2" color="fg.muted">
                 <Spinner size="sm" color="accent" />
-                <Text fontSize="sm">Un instant…</Text>
+                <Text fontSize="sm">{t("One moment…")}</Text>
               </HStack>
             )}
             {error && (
@@ -163,7 +164,7 @@ function DecisionBody({ detail, expert }: { detail: DecisionDetail; expert: bool
   return (
     <Stack gap="4" pt="1" borderTopWidth="1px" borderColor="border.subtle">
       {decision.proposal && (
-        <Section title="Pourquoi">
+        <Section title={t("Why")}>
           <Text fontSize="sm" color="fg.muted" lineHeight="1.6" whiteSpace="pre-wrap">
             {decision.proposal}
           </Text>
@@ -171,7 +172,7 @@ function DecisionBody({ detail, expert }: { detail: DecisionDetail; expert: bool
       )}
 
       {options.length > 0 && (
-        <Section title="Les pistes">
+        <Section title={t("The paths")}>
           <Stack gap="1.5">
             {options.map((o) => (
               <HStack key={o.id} gap="2" align="start">
@@ -188,7 +189,7 @@ function DecisionBody({ detail, expert }: { detail: DecisionDetail; expert: bool
                   {o.is_null_option && (
                     <Text as="span" color="fg.subtle">
                       {" "}
-                      · l'option « ne rien changer »
+                      · {t('the \'change nothing\' option')}
                     </Text>
                   )}
                 </Text>
@@ -199,7 +200,7 @@ function DecisionBody({ detail, expert }: { detail: DecisionDetail; expert: bool
       )}
 
       {decision.values_alignment_note && (
-        <Section title="Est-ce que ça te ressemble">
+        <Section title={t("Does it sound like you")}>
           <Box bg="accent.subtle" rounded="l2" px="3.5" py="2.5">
             <Text fontSize="sm" lineHeight="1.6">
               {decision.values_alignment_note}
@@ -209,7 +210,7 @@ function DecisionBody({ detail, expert }: { detail: DecisionDetail; expert: bool
       )}
 
       {decision.distance_10_10_10 && (
-        <Section title="10 minutes · 10 mois · 10 ans">
+        <Section title={t("10 minutes · 10 months · 10 years")}>
           <Text fontSize="sm" color="fg.muted" lineHeight="1.6" whiteSpace="pre-wrap">
             {decision.distance_10_10_10}
           </Text>
@@ -217,7 +218,7 @@ function DecisionBody({ detail, expert }: { detail: DecisionDetail; expert: bool
       )}
 
       {stories.length > 0 && (
-        <Section title="Tes petits pas">
+        <Section title={t("Your small steps")}>
           <Stack gap="1.5">
             {stories.map((st) => (
               <HStack key={st.id} gap="2.5" align="start">
@@ -246,7 +247,7 @@ function DecisionBody({ detail, expert }: { detail: DecisionDetail; expert: bool
       )}
 
       {chosen?.premortem && (
-        <Section title="Si dans un an ça avait échoué">
+        <Section title={t("If, a year on, it had failed")}>
           <Text fontSize="sm" color="fg.muted" lineHeight="1.6" whiteSpace="pre-wrap">
             {chosen.premortem}
           </Text>

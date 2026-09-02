@@ -14,6 +14,7 @@ import { Btn, Field } from "../ui/controls";
 import { Card, FieldLabel, PageHeader, Pill, SectionTitle } from "../ui/primitives";
 import { Async, useAsync, humanError } from "../ui/states";
 import { toaster } from "../ui/toaster";
+import { t } from "../i18n";
 
 export function Settings({ ctx }: { ctx: Ctx }) {
   const db = useAsync(() => dbHealth(), []);
@@ -22,62 +23,84 @@ export function Settings({ ctx }: { ctx: Ctx }) {
 
   return (
     <Stack gap="6">
-      <PageHeader title="Réglages" sub="L'app, l'IA locale, tes données." />
+      <PageHeader title={t("Settings")} sub={t("The app, the local AI, your data.")} />
       <Box>
-        <SectionTitle hint="Ce qui fait tourner l'app, ici, sur ta machine.">État</SectionTitle>
+        <SectionTitle hint={t("What keeps the app running, right here, on your machine.")}>
+          {t("Status")}
+        </SectionTitle>
         <Stack gap="2.5">
-          <HealthCard label="Tes données (chiffrées)" state={db} okText="Prêtes et protégées" />
+          <HealthCard label={t("Your data (encrypted)")} state={db} okText={t("Ready and protected")} />
           <HealthCard
-            label="Assistant local (optionnel)"
+            label={t("Local assistant (optional)")}
             state={ai}
-            okText="Disponible"
-            offText="Pas installé — l'app marche quand même"
+            okText={t("Available")}
+            offText={t("Not installed — the app works without it")}
           />
         </Stack>
       </Box>
 
       <Box>
-        <SectionTitle>Apparence</SectionTitle>
+        <SectionTitle>{t("Appearance")}</SectionTitle>
         <Card>
-          <HStack>
-            <Stack gap="0.5" flex="1">
-              <Text fontSize="sm" fontWeight="medium">Thème</Text>
-              <Text fontSize="xs" color="fg.muted">Clair, sombre, ou selon ton système.</Text>
-            </Stack>
-            <HStack gap="1.5">
-              {(["light", "dark", "system"] as const).map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  className={"ui-chip" + (setting === t ? " on" : "")}
-                  onClick={() => set(t)}
-                >
-                  {t === "light" ? "Clair" : t === "dark" ? "Sombre" : "Système"}
-                </button>
-              ))}
+          <Stack gap="3">
+            <HStack>
+              <Stack gap="0.5" flex="1">
+                <Text fontSize="sm" fontWeight="medium">{t("Theme")}</Text>
+                <Text fontSize="xs" color="fg.muted">{t("Light, dark, or follow your system.")}</Text>
+              </Stack>
+              <HStack gap="1.5">
+                {(["light", "dark", "system"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    className={"ui-chip" + (setting === mode ? " on" : "")}
+                    onClick={() => set(mode)}
+                  >
+                    {mode === "light" ? t("Light") : mode === "dark" ? t("Dark") : t("System")}
+                  </button>
+                ))}
+              </HStack>
             </HStack>
-          </HStack>
+            <HStack>
+              <Stack gap="0.5" flex="1">
+                <Text fontSize="sm" fontWeight="medium">{t("Language")}</Text>
+                <Text fontSize="xs" color="fg.muted">{t("English, or French.")}</Text>
+              </Stack>
+              <HStack gap="1.5">
+                {(["en", "fr"] as const).map((l) => (
+                  <button
+                    key={l}
+                    type="button"
+                    className={"ui-chip" + (ctx.lang === l ? " on" : "")}
+                    onClick={() => ctx.setLang(l)}
+                  >
+                    {l === "en" ? "English" : "Français"}
+                  </button>
+                ))}
+              </HStack>
+            </HStack>
+          </Stack>
         </Card>
       </Box>
 
       <Box>
-        <SectionTitle hint="Le mode expert affiche les rouages techniques, pour les curieux.">
-          Niveau de détail
+        <SectionTitle hint={t("Expert mode shows the technical gears, for the curious.")}>
+          {t("Level of detail")}
         </SectionTitle>
         <Card>
           <HStack>
             <Text fontSize="sm" flex="1">
-              {ctx.mode === "expert" ? "Mode expert" : "Mode simple"}
+              {ctx.mode === "expert" ? t("Expert mode") : t("Simple mode")}
             </Text>
             <Btn sm subtle onClick={() => ctx.setMode(ctx.mode === "expert" ? "human" : "expert")}>
-              Passer en {ctx.mode === "expert" ? "simple" : "expert"}
+              {t("Switch to")} {ctx.mode === "expert" ? t("simple") : t("expert")}
             </Btn>
           </HStack>
         </Card>
       </Box>
 
       <Box>
-        <SectionTitle>Tes données</SectionTitle>
+        <SectionTitle>{t("Your data")}</SectionTitle>
         <Stack gap="2.5">
           <ExportCard />
           <SyncCard />
@@ -92,7 +115,7 @@ function HealthCard({
   label,
   state,
   okText,
-  offText = "Indisponible",
+  offText = t("Unavailable"),
 }: {
   label: string;
   state: ReturnType<typeof useAsync<Health>>;
@@ -119,9 +142,9 @@ function ExportCard() {
       setBusy(true);
       try {
         const path = await exportData();
-        toaster.create({ type: "success", title: "Export créé", description: path });
+        toaster.create({ type: "success", title: t("Export created"), description: path });
       } catch (e) {
-        toaster.create({ type: "error", title: "Oups", description: humanError(e) });
+        toaster.create({ type: "error", title: t("Oops"), description: humanError(e) });
       } finally {
         setBusy(false);
       }
@@ -130,13 +153,13 @@ function ExportCard() {
       <Card>
         <HStack>
           <Stack gap="0.5" flex="1">
-            <Text fontSize="sm" fontWeight="medium">Exporter</Text>
+            <Text fontSize="sm" fontWeight="medium">{t("Export")}</Text>
             <Text fontSize="xs" color="fg.muted">
-              Tout ton contenu en texte lisible, sauvegardé dans Tes documents.
+              {t("All your content as readable text, saved to your Documents folder.")}
             </Text>
           </Stack>
           <Btn sm subtle onClick={run} loading={busy}>
-            Exporter en Markdown
+            {t("Export as Markdown")}
           </Btn>
         </HStack>
       </Card>
@@ -151,9 +174,9 @@ function SyncCard() {
     setBusy(true);
     try {
       const path = await syncExport(pass);
-      toaster.create({ type: "success", title: "Sauvegarde chiffrée créée", description: path });
+      toaster.create({ type: "success", title: t("Encrypted snapshot created"), description: path });
     } catch (e) {
-      toaster.create({ type: "error", title: "Oups", description: humanError(e) });
+      toaster.create({ type: "error", title: t("Oops"), description: humanError(e) });
     } finally {
       setBusy(false);
     }
@@ -162,21 +185,22 @@ function SyncCard() {
     <Card>
       <Stack gap="3">
         <Stack gap="0.5">
-          <Text fontSize="sm" fontWeight="medium">Sauvegarde chiffrée</Text>
+          <Text fontSize="sm" fontWeight="medium">{t("Encrypted snapshot")}</Text>
           <Text fontSize="xs" color="fg.muted">
-            Un fichier protégé par une phrase secrète, pour transporter tes données. La phrase n'est stockée nulle part —
-            garde-la.
+            {t(
+              "A file protected by a passphrase, to carry your data across devices. The passphrase is stored nowhere — keep it.",
+            )}
           </Text>
         </Stack>
         <HStack>
           <Field
             type="password"
-            placeholder="Phrase secrète (min. 6 caractères)"
+            placeholder={t("Passphrase (min. 6 characters)")}
             value={pass}
             onChange={(e) => setPass(e.target.value)}
           />
           <Btn sm subtle onClick={run} loading={busy} disabled={pass.length < 6}>
-            Créer
+            {t("Create")}
           </Btn>
         </HStack>
       </Stack>
@@ -188,17 +212,17 @@ function EraseCard() {
   const [confirm, setConfirm] = useState("");
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const WORD = "SUPPRIMER";
+  const WORD = "ERASE";
 
   const run = async () => {
     setBusy(true);
     try {
       await eraseAll(confirm);
-      toaster.create({ type: "success", title: "Tout a été effacé" });
+      toaster.create({ type: "success", title: t("Everything was erased") });
       setOpen(false);
       setConfirm("");
     } catch (e) {
-      toaster.create({ type: "error", title: "Impossible", description: humanError(e) });
+      toaster.create({ type: "error", title: t("Couldn't erase"), description: humanError(e) });
     } finally {
       setBusy(false);
     }
@@ -209,30 +233,30 @@ function EraseCard() {
       <Stack gap="3">
         <Stack gap="0.5">
           <Text fontSize="sm" fontWeight="medium" color="fg">
-            Tout effacer
+            {t("Erase everything")}
           </Text>
           <Text fontSize="xs" color="fg.muted">
-            Efface définitivement toutes tes données de cet appareil. Sans retour possible.
+            {t("Permanently erases all your data on this device. There is no way back.")}
           </Text>
         </Stack>
         {!open ? (
           <Box>
             <Btn sm danger onClick={() => setOpen(true)}>
-              Effacer mes données
+              {t("Erase my data")}
             </Btn>
           </Box>
         ) : (
           <Stack gap="2">
             <FieldLabel>
-              Écris <b>{WORD}</b> pour confirmer
+              {t("Type")} <b>{WORD}</b> {t("to confirm")}
             </FieldLabel>
             <HStack>
               <Field value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder={WORD} />
               <Btn sm ghost onClick={() => { setOpen(false); setConfirm(""); }}>
-                Annuler
+                {t("Cancel")}
               </Btn>
               <Btn sm danger primary onClick={run} loading={busy} disabled={confirm !== WORD}>
-                Effacer
+                {t("Erase")}
               </Btn>
             </HStack>
           </Stack>

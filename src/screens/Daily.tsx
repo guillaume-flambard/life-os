@@ -15,6 +15,7 @@ import { Btn, Area } from "../ui/controls";
 import { Card, PageHeader, SectionTitle } from "../ui/primitives";
 import { Async, EmptyState, humanError, useAsync } from "../ui/states";
 import { toaster } from "../ui/toaster";
+import { t } from "../i18n";
 
 function timeAgo(iso: string): string {
   try {
@@ -40,7 +41,7 @@ export function Daily({ ctx }: { ctx: Ctx }) {
       setNote("");
       captures.reload();
     } catch (e) {
-      toaster.create({ type: "error", title: "Oups", description: humanError(e) });
+      toaster.create({ type: "error", title: t("Oops"), description: humanError(e) });
     } finally {
       setSaving(false);
     }
@@ -48,34 +49,34 @@ export function Daily({ ctx }: { ctx: Ctx }) {
 
   return (
     <Stack gap="6">
-      <PageHeader title="Aujourd'hui" sub="Noter une pensée, avancer d'un pas." />
+      <PageHeader title={t("Today")} sub={t("Jot a thought, move a step.")} />
       <Card>
         <Stack gap="3">
-          <Text fontWeight="semibold">Qu'est-ce qui te passe par la tête ?</Text>
+          <Text fontWeight="semibold">{t("What's on your mind?")}</Text>
           <Area
             rows={2}
-            placeholder="Une pensée, un ressenti, un truc à ne pas oublier…"
+            placeholder={t("A thought, a feeling, something you don't want to forget…")}
             value={note}
             onChange={(e) => setNote(e.target.value)}
           />
           <HStack>
             <Text fontSize="xs" color="fg.subtle" mr="auto">
-              Reste ici, chiffré. Pour toi seul·e.
+              {t("It stays here, encrypted. For your eyes only.")}
             </Text>
             <Btn primary onClick={save} loading={saving} disabled={!note.trim()}>
-              Noter
+              {t("Note it")}
             </Btn>
           </HStack>
         </Stack>
       </Card>
 
       <Box>
-        <SectionTitle hint="Coche quand c'est fait — un pas à la fois.">Tes petits pas</SectionTitle>
+        <SectionTitle hint={t("Tick when done — one step at a time.")}>{t("Your small steps")}</SectionTitle>
         <Async
           state={stories}
           empty={(s) =>
             s.length === 0 ? (
-              <EmptyState icon="🌤️" title="Rien à faire d'imposé" hint="Tes prochains pas apparaîtront ici quand tu exploreras une décision." />
+              <EmptyState icon="🌤️" title={t("Nothing forced to do")} hint={t("Your next steps will appear here as you explore a decision.")} />
             ) : false
           }
         >
@@ -94,10 +95,10 @@ export function Daily({ ctx }: { ctx: Ctx }) {
       </Box>
 
       <Box>
-        <SectionTitle>Tes dernières notes</SectionTitle>
+        <SectionTitle>{t("Your latest notes")}</SectionTitle>
         <Async
           state={captures}
-          empty={(c) => (c.length === 0 ? <Text fontSize="sm" color="fg.subtle" px="1">Pas encore de note.</Text> : false)}
+          empty={(c) => (c.length === 0 ? <Text fontSize="sm" color="fg.subtle" px="1">{t("No notes yet.")}</Text> : false)}
         >
           {(list: Capture[]) => (
             <Stack gap="2">
@@ -159,7 +160,7 @@ function StepRow({ story, onDone }: { story: OpenStory; onDone: () => void }) {
           </Text>
           {story.decision_title && (
             <Text fontSize="xs" color="fg.subtle" lineClamp="1">
-              pour « {story.decision_title} »
+              {t("for")} \u201c{story.decision_title}\u201d
             </Text>
           )}
         </Stack>

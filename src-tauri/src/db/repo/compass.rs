@@ -17,7 +17,7 @@ fn check_priority(p: &str) -> Result<(), ApiError> {
     if PRIORITIES.contains(&p) {
         Ok(())
     } else {
-        Err(ApiError::invalid(format!("priorité inconnue: {p}")))
+        Err(ApiError::invalid(format!("unknown priority: {p}")))
     }
 }
 
@@ -60,7 +60,7 @@ pub fn create_domain(conn: &Connection, name: &str) -> Result<Domain, ApiError> 
     super::with_tx(conn, |conn| {
         if active_domain_count(conn)? >= DOMAIN_ACTIVE_CAP {
             return Err(ApiError::cap_reached(
-                "Tu as déjà assez de pans de vie. Retires-en un avant d'en ajouter.".to_string(),
+                "You already have enough life areas. Remove one before adding another.".to_string(),
             ));
         }
         let now = Utc::now().to_rfc3339();
@@ -172,7 +172,7 @@ pub fn create_intention(
     super::with_tx(conn, |conn| {
         if active_intention_count(conn, domain_id)? >= INTENTION_ACTIVE_CAP {
             return Err(ApiError::cap_reached(
-                "Ce pan est déjà bien rempli. Retire une intention avant d'en ajouter.".to_string(),
+                "This area is already full. Remove an intention before adding another.".to_string(),
             ));
         }
         let now = Utc::now().to_rfc3339();

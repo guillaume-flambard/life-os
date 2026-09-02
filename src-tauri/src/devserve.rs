@@ -133,7 +133,7 @@ async fn serve_conn(
     } else {
         match serde_json::from_slice::<Value>(body_bytes) {
             Ok(v) => dispatch(&db, &ai, v).await.map(|v| (200, v)).unwrap_or_else(|f| (f.0, f.1)),
-            Err(_) => (400, json!({ "code": "invalid", "message": "corps illisible" })),
+            Err(_) => (400, json!({ "code": "invalid", "message": "unreadable body" })),
         }
     };
 
@@ -169,8 +169,8 @@ async fn dispatch(db: &Db, ai: &Ollama, body: Value) -> Out {
         "db_health" => {
             let c = conn();
             match repo::schema_ready(&c) {
-                Ok(true) => ok(Health::ok("Base chiffrée prête".to_string())),
-                Ok(false) => ok(Health::ko("Schéma manquant".to_string())),
+                Ok(true) => ok(Health::ok("Encrypted database ready".to_string())),
+                Ok(false) => ok(Health::ko("Missing schema".to_string())),
                 Err(e) => ok(Health::ko(format!("Erreur base: {e}"))),
             }
         }
@@ -267,7 +267,7 @@ async fn dispatch(db: &Db, ai: &Ollama, body: Value) -> Out {
                     }
                     Err(e) => {
                         if n == 0 {
-                            return Err(ApiError::ai(format!("modèle d'embedding indisponible : {e}")).into());
+                            return Err(ApiError::ai(format!("embedding model unavailable: {e}")).into());
                         }
                         break;
                     }
@@ -327,7 +327,7 @@ async fn dispatch(db: &Db, ai: &Ollama, body: Value) -> Out {
         "sync_export" => {
             let passphrase = s(&a, "passphrase");
             if passphrase.len() < 8 {
-                return Err(ApiError::invalid("choisis une phrase secrète d'au moins 8 caractères").into());
+                return Err(ApiError::invalid("choose a passphrase of at least 8 characters").into());
             }
             let snapshot = sync::export_json(&conn())?;
             let bytes = serde_json::to_vec(&snapshot).map_err(ApiError::db)?;
@@ -336,22 +336,22 @@ async fn dispatch(db: &Db, ai: &Ollama, body: Value) -> Out {
         }
         "sync_import" => {
             let encrypted = std::fs::read(s(&a, "path"))
-                .map_err(|_| ApiError::invalid("fichier introuvable"))?;
+                .map_err(|_| ApiError::invalid("file not found"))?;
             let bytes = sync::decrypt(&encrypted, &s(&a, "passphrase")).map_err(ApiError::invalid)?;
             let snapshot: Value = serde_json::from_slice(&bytes)
-                .map_err(|_| ApiError::invalid("instantané illisible"))?;
+                .map_err(|_| ApiError::invalid("unreadable snapshot"))?;
             ok(sync::import_merge(&conn(), &snapshot)?)
         }
         "erase_all" => {
             if s(&a, "confirm") != "EFFACER" {
-                return Err(ApiError::invalid("confirmation manquante").into());
+                return Err(ApiError::invalid("missing confirmation").into());
             }
             ok(admin::erase_all(&conn())?)
         }
 
         _ => Err(Fail(
             404,
-            json!({ "code": "invalid", "message": format!("commande inconnue: {cmd}") }),
+            json!({ "code": "invalid", "message": format!("unknown command: {cmd}") }),
         )),
     }
 }
@@ -362,7 +362,7 @@ fn now_stamp() -> String {
 
 fn write_download(name: String, bytes: Vec<u8>) -> Result<String, Fail> {
     let home = std::env::var("HOME")
-        .map_err(|_| ApiError::invalid("dossier utilisateur introuvable"))?;
+        .map_err(|_| ApiError::invalid("user directory not found"))?;
     let downloads = std::path::Path::new(&home).join("Downloads");
     let dir = if downloads.is_dir() { downloads } else { std::path::PathBuf::from(&home) };
     let path = dir.join(name);

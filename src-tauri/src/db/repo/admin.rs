@@ -47,7 +47,7 @@ pub fn export_markdown(conn: &Connection) -> Result<String, ApiError> {
         out.push_str(&format!(
             "\n### {name}{}\n",
             if status == "archived" {
-                " (mis de côté)"
+                " (set aside)"
             } else {
                 ""
             }
@@ -76,7 +76,7 @@ pub fn export_markdown(conn: &Connection) -> Result<String, ApiError> {
                 "- [{}] {marker}{}\n",
                 priority_label(&priority),
                 if status == "archived" {
-                    " _(mise de côté)_"
+                    " _(set aside)_"
                 } else {
                     ""
                 }
@@ -85,7 +85,7 @@ pub fn export_markdown(conn: &Connection) -> Result<String, ApiError> {
     }
 
     // Decision log
-    out.push_str("\n## Ton carnet de décisions\n");
+    out.push_str("\n## Your decision notebook\n");
     let mut decstmt = conn.prepare(
         "SELECT id, title, proposal, values_alignment_note, status, review_at
          FROM decisions WHERE deleted_at IS NULL ORDER BY created_at DESC",
@@ -108,7 +108,7 @@ pub fn export_markdown(conn: &Connection) -> Result<String, ApiError> {
             out.push_str(&format!("- Pourquoi : {p}\n"));
         }
         if let Some(a) = alignment {
-            out.push_str(&format!("- Face à ta boussole : {a}\n"));
+            out.push_str(&format!("- Against your compass: {a}\n"));
         }
         let mut xstmt = conn.prepare(
             "SELECT op, payload_statement FROM deltas WHERE decision_id = ?1 AND deleted_at IS NULL ORDER BY created_at",
@@ -118,7 +118,7 @@ pub fn export_markdown(conn: &Connection) -> Result<String, ApiError> {
         })? {
             let (op, stmt) = row?;
             out.push_str(&format!(
-                "- Ce que ça change : {op} — {}\n",
+                "- What it changes: {op} — {}\n",
                 stmt.unwrap_or_default()
             ));
         }
@@ -135,7 +135,7 @@ pub fn export_markdown(conn: &Connection) -> Result<String, ApiError> {
             ));
         }
         if let Some(rv) = review_at {
-            out.push_str(&format!("- Point prévu : {}\n", day(rv)));
+            out.push_str(&format!("- Check-in planned: {}\n", day(rv)));
         }
     }
 

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Choice, Turn } from "./flow";
 import "./chat.css";
+import { t } from "../i18n";
 
 // Bespoke, hand-written conversation — no component-library defaults. Plain
 // elements styled by chat.css for the clean ChatGPT/Claude register.
@@ -93,7 +94,7 @@ function Composer({
           onKeyDown={(e) => e.key === "Enter" && send()}
         />
       )}
-      <button type="button" className="cv-send" onClick={send} disabled={!value.trim()} aria-label="Envoyer">
+      <button type="button" className="cv-send" onClick={send} disabled={!value.trim()} aria-label={t("Send")}>
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M12 19V5M5 12l7-7 7 7" />
         </svg>

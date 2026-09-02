@@ -38,6 +38,7 @@ import { ReasoningPanel } from "../ui/Reasoning";
 import { MotionBox } from "../ui/motion";
 import { humanError } from "../ui/states";
 import { navigate } from "../ui/router";
+import { t } from "../i18n";
 
 // The home IS the conversation. First run has no wizard: one warm line, then a
 // single choice. Each branch does the smallest useful thing and hands back the
@@ -45,11 +46,11 @@ import { navigate } from "../ui/router";
 // the user can do grows as their world fills — held by the hand, step by step.
 
 const CONFIDENCE = [
-  { label: "Très incertain", value: "20" },
-  { label: "Hésitant", value: "40" },
-  { label: "Plutôt sûr", value: "60" },
-  { label: "Confiant", value: "80" },
-  { label: "Décidé", value: "100" },
+  { label: "Very unsure", value: "20" },
+  { label: "Hesitant", value: "40" },
+  { label: "Fairly sure", value: "60" },
+  { label: "Confident", value: "80" },
+  { label: "Decided", value: "100" },
 ];
 
 interface World {
@@ -96,8 +97,8 @@ function ResourcesBubble({ resources }: { resources: { name: string; contact: st
   const list = resources.length
     ? resources
     : [
-        { name: "3114 — prévention du suicide", contact: "3114" },
-        { name: "SOS Amitié", contact: "09 72 39 40 50" },
+        { name: "3114 — suicide prevention (France)", contact: "3114" },
+        { name: "findahelpline.com — worldwide directory", contact: "findahelpline.com" },
       ];
   return (
     <Box
@@ -113,7 +114,7 @@ function ResourcesBubble({ resources }: { resources: { name: string; contact: st
     >
       <Stack gap="2.5">
         <Text fontSize="md" fontWeight="medium">
-          Je ne suis pas un soignant — mais parler à quelqu'un peut aider, là, maintenant.
+          {t("I'm not a caregiver — but talking to someone can help, right now.")}
         </Text>
         <Stack gap="1.5">
           {list.map((r) => (
@@ -139,8 +140,8 @@ async function safetyCheck(flow: Flow, text: string) {
     if (r.distress) {
       await flow.say(<ResourcesBubble resources={r.resources ?? []} />);
       const go = await flow.ask([
-        { label: "Voir les ressources", value: "yes", tone: "accent" },
-        { label: "Ça va, je continue", value: "no" },
+        { label: t("See the resources"), value: "yes", tone: "accent" },
+        { label: t("I'm okay, let's continue"), value: "no" },
       ]);
       if (go === "yes") navigate("distress");
     }
@@ -161,9 +162,9 @@ async function script(flow: Flow, onboarded: boolean, onReveal: () => void) {
   const world = await snapshot();
 
   if (!onboarded) {
-    await flow.say("Salut 👋");
-    await flow.say("Je suis là pour t'aider à voir clair dans ce qui compte — tranquillement, à ton rythme.");
-    await flow.say("Tout reste ici, sur ta machine. Rien ne part ailleurs.");
+    await flow.say(t("Hi 👋"));
+    await flow.say(t("I'm here to help you see what matters clearly — quietly, at your pace."));
+    await flow.say(t("Everything stays on your machine. Nothing goes anywhere."));
   } else {
     await flow.say(welcomeBack(world));
     // Follow-through first: a pending small step is the gentlest re-entry.
@@ -178,7 +179,7 @@ async function script(flow: Flow, onboarded: boolean, onReveal: () => void) {
   while (true) {
     const options = menuFor(world, first);
     const choice = await flow.ask(options, {
-      prompt: first ? (onboarded ? "Qu'est-ce qui t'amène ?" : "On commence par quoi ?") : "Et maintenant ?",
+      prompt: first ? (onboarded ? t("What brings you here?") : t("Where do we start?")) : t("And now?"),
     });
     first = false;
 
@@ -192,60 +193,61 @@ async function script(flow: Flow, onboarded: boolean, onReveal: () => void) {
     Object.assign(world, await snapshot());
 
     const again = await flow.ask([
-      { label: "Encore une chose", value: "again", tone: "accent" },
-      { label: "C'est bon pour l'instant", value: "stop" },
+      { label: t("One more thing"), value: "again", tone: "accent" },
+      { label: t("That's all for now"), value: "stop" },
     ]);
     if (again === "stop") {
-      await flow.say("Quand tu veux. Je reste là.");
+      await flow.say(t("Whenever you're ready. I'm here."));
       return;
     }
   }
 }
 
 function welcomeBack(w: World): string {
-  if (w.decisions === 0 && w.notes === 0)
-    return "Re. On reprend là où tu veux.";
+  if (w.decisions === 0 && w.notes === 0) return t("Hey again. We pick up wherever you like.");
   const bits: string[] = [];
-  if (w.decisions) bits.push(`${w.decisions} décision${w.decisions > 1 ? "s" : ""}`);
-  if (w.domains) bits.push(`${w.domains} pan${w.domains > 1 ? "s" : ""} de vie`);
-  return bits.length ? `Content de te revoir. Tu as ${bits.join(" et ")}.` : "Content de te revoir.";
+  if (w.decisions) bits.push(w.decisions === 1 ? t("1 decision") : `${w.decisions} ${t("decisions")}`);
+  if (w.domains) bits.push(w.domains === 1 ? t("1 life area") : `${w.domains} ${t("life areas")}`);
+  return bits.length
+    ? `${t("Good to see you. You have")} ${bits.join(` ${t("and")} `)}.`
+    : t("Good to see you.");
 }
 
 function menuFor(w: World, first: boolean): { label: string; value: string; hint?: string; tone?: "default" | "accent" }[] {
   const opts: { label: string; value: string; hint?: string; tone?: "default" | "accent" }[] = [
-    { label: "Une décision me trotte", value: "decision", hint: "on la regarde ensemble", tone: "accent" },
-    { label: "Poser ce qui compte pour moi", value: "compass", hint: "une chose, pour commencer" },
-    { label: "Juste noter une pensée", value: "note", hint: "ça reste ici, chiffré" },
+    { label: t("A decision is on my mind"), value: "decision", hint: t("let's look at it together"), tone: "accent" },
+    { label: t("Name what matters to me"), value: "compass", hint: t("one thing, to start") },
+    { label: t("Just jot down a thought"), value: "note", hint: t("it stays here, encrypted") },
   ];
   // The field grows with the world.
   if (first && w.openStories.length > 0) {
-    opts.push({ label: "Reprendre un petit pas", value: "step", hint: `${w.openStories.length} en attente` });
+    opts.push({ label: t("Pick up a small step"), value: "step", hint: `${w.openStories.length} ${t("waiting")}` });
   }
   if (w.proposed.length > 0) {
-    opts.push({ label: "Faire le point", value: "review", hint: `${w.proposed.length} à intégrer` });
+    opts.push({ label: t("Do a check-in"), value: "review", hint: `${w.proposed.length} ${t("to integrate")}` });
   }
   if (w.decisions > 0) {
-    opts.push({ label: "Voir mon carnet", value: "carnet", hint: "tes décisions" });
+    opts.push({ label: t("Open my notebook"), value: "carnet", hint: t("your decisions") });
   }
   return opts;
 }
 
-// Faire le point, dans le fil : intégrer une décision prête à ta boussole, ou
-// simplement écrire ce que tu retiens.
+// The check-in, in-thread: integrate a ready decision into the compass, or
+// simply write down what this week taught you.
 async function branchReview(flow: Flow, world: World) {
   const proposed = world.proposed;
   if (proposed.length === 0) {
     const note = await flow.input({
-      prompt: "Faire le point, c'est regarder — pas se juger. Qu'est-ce que tu retiens, là ?",
-      placeholder: "Ce qui a bougé, ce que tu apprends…",
+      prompt: t("Checking in is looking — not judging. What are you taking away from this week?"),
+      placeholder: t("What moved, what you learned…"),
       multiline: true,
-      cta: "Garder",
+      cta: t("Keep"),
     });
     try {
       await captureAdd(note, "reflection");
-      await flow.say("Gardé. C'est déjà un pas de recul.");
+      await flow.say(t("Kept. That's already one step back."));
     } catch (e) {
-      await flow.say(`Je n'ai pas réussi à le garder : ${humanError(e)}. On réessaiera.`);
+      await flow.say(`${t("I couldn't keep it")}: ${humanError(e)}. ${t("We'll try again.")}`);
     }
     return;
   }
@@ -253,18 +255,18 @@ async function branchReview(flow: Flow, world: World) {
   const d = proposed[0];
   await flow.say(
     <Stack gap="1">
-      <Text>Une décision est prête à rejoindre ta boussole :</Text>
+      <Text>{t("One decision is ready to join your compass:")}</Text>
       <Text fontWeight="semibold">{d.title}</Text>
     </Stack>,
   );
   if (d.values_alignment_note) await flow.say(d.values_alignment_note);
 
   const ans = await flow.ask([
-    { label: "Intégrer à ma boussole", value: "apply", tone: "accent" },
-    { label: "Plus tard", value: "later" },
+    { label: t("Integrate into my compass"), value: "apply", tone: "accent" },
+    { label: t("Later"), value: "later" },
   ]);
   if (ans !== "apply") {
-    await flow.say("Ok, elle t'attendra. Sans pression.");
+    await flow.say(t("Okay, it will wait. No pressure."));
     return;
   }
   try {
@@ -275,9 +277,9 @@ async function branchReview(flow: Flow, world: World) {
       target_intention_id: dl.target_intention_id,
     }));
     await applyDecision(d.id, resolutions);
-    await flow.say("Intégré. Ta boussole a un peu bougé. 🧭");
+    await flow.say(t("Integrated. Your compass moved a little. 🧭"));
   } catch (e) {
-    await flow.say("Je n'ai pas réussi à l'intégrer cette fois. On réessaiera.");
+    await flow.say(t("I couldn't integrate it this time. We'll try again."));
     void e;
   }
 }
@@ -288,18 +290,18 @@ async function pickStep(flow: Flow, stories: OpenStory[]): Promise<boolean> {
   const s = stories[0];
   const ans = await flow.ask(
     [
-      { label: "Fait ✓", value: "done", tone: "accent" },
-      { label: "Pas encore", value: "later" },
-      { label: "Laisse tomber", value: "drop" },
+      { label: t("Done ✓"), value: "done", tone: "accent" },
+      { label: t("Not yet"), value: "later" },
+      { label: t("Let it go"), value: "drop" },
     ],
     {
       prompt: (
         <Stack gap="1">
-          <Text>Un petit pas t'attend :</Text>
+          <Text>{t("A small step is waiting:")}</Text>
           <Text fontWeight="semibold">{s.title}</Text>
           {s.decision_title && (
             <Text fontSize="sm" color="fg.muted">
-              pour « {s.decision_title} »
+              {t("for")} \u201c{s.decision_title}\u201d
             </Text>
           )}
         </Stack>
@@ -309,49 +311,49 @@ async function pickStep(flow: Flow, stories: OpenStory[]): Promise<boolean> {
   if (ans === "done") {
     try {
       await setStoryStatus(s.id, "done");
-      await flow.say("Bravo. Un pas, c'est un pas. 🌱");
+      await flow.say(t("Well done. A step is a step. 🌱"));
       return true;
     } catch (e) {
-      await flow.say(`Je n'ai pas réussi à l'inscrire : ${humanError(e)}. Pas grave, il t'attend.`);
+      await flow.say(`${t("I couldn't record it")}: ${humanError(e)}. ${t("No worries, it'll wait.")}`);
       return false;
     }
   }
   if (ans === "drop") {
     try {
       await setStoryStatus(s.id, "dropped");
-      await flow.say("Rangé. Aucun souci.");
+      await flow.say(t("Set aside. No worries."));
       return true;
     } catch (e) {
-      await flow.say(`Je n'ai pas réussi à le ranger : ${humanError(e)}.`);
+      await flow.say(`${t("I couldn't set it aside")}: ${humanError(e)}.`);
       return false;
     }
   }
-  await flow.say("Ok, il t'attendra. Sans pression.");
+  await flow.say(t("Okay, it'll wait. No pressure."));
   return false;
 }
 
 async function branchNote(flow: Flow, reveal: () => Promise<void>) {
   const txt = await flow.input({
-    prompt: "Vas-y, écris. Ce qui te passe par la tête.",
-    placeholder: "Une pensée, un ressenti, un truc à ne pas oublier…",
+    prompt: t("Go ahead, write. Whatever's on your mind."),
+    placeholder: t("A thought, a feeling, something you don't want to forget…"),
     multiline: true,
-    cta: "Garder",
+    cta: t("Keep"),
   });
   await reveal();
   try {
     await captureAdd(txt);
-    await flow.say("C'est gardé. Pour toi seul·e.");
+    await flow.say(t("Kept. For your eyes only."));
   } catch (e) {
-    await flow.say(`Je n'ai pas réussi à l'enregistrer : ${humanError(e)}. Garde-le de côté, on réessaiera.`);
+    await flow.say(`${t("I couldn't save it")}: ${humanError(e)}. ${t("Hold onto it, we'll try again.")}`);
   }
   await safetyCheck(flow, txt);
 }
 
 async function branchCompass(flow: Flow, reveal: () => Promise<void>) {
   const thing = await flow.input({
-    prompt: "Cite UNE chose qui compte pour toi, là, maintenant. Rien de plus.",
-    placeholder: "Ex. ma santé · mes proches · apprendre · le temps pour moi",
-    cta: "Noter",
+    prompt: t("Name ONE thing that matters to you, right now. Nothing more."),
+    placeholder: t("e.g. my health · my people · learning · time for myself"),
+    cta: t("Save"),
   });
   let domainId: string | null = null;
   let problem: string | null = null;
@@ -364,29 +366,33 @@ async function branchCompass(flow: Flow, reveal: () => Promise<void>) {
   await reveal();
   if (!domainId) {
     await flow.say(
-      `Je n'ai pas réussi à enregistrer « ${thing} » : ${problem}. On continue quand même — tu pourras réessayer depuis ta boussole.`,
+      `${t("I couldn't save")} \u201c${thing}\u201d : ${problem}. ${t("We'll keep going anyway — you can retry from your compass.")}`,
     );
     return;
   }
   await flow.say(
     <>
-      Noté. <b>{thing}</b> compte pour toi.
+      {t("Noted.")} <b>{thing}</b> {t("matters to you.")}
     </>,
   );
 
   // Optional, one gentle deepening — turn it into a testable "when… I…".
   const precise = await flow.ask(
     [
-      { label: "Oui, préciser", value: "yes", tone: "accent" },
-      { label: "Plus tard", value: "no" },
+      { label: t("Yes, make it concrete"), value: "yes", tone: "accent" },
+      { label: t("Later"), value: "no" },
     ],
-    { prompt: "Tu veux le rendre concret — « quand… je… » ? Ça aide à s'y retrouver." },
+    { prompt: t("Want to make it concrete — a when… I… pattern? It helps you find your way back.") },
   );
   if (precise === "yes") {
     const raw = await flow.input({
-      prompt: <>En une phrase : qu'est-ce que « {thing} » veut dire concrètement pour toi ?</>,
-      placeholder: "Ex. quand je rentre le soir, je coupe mon téléphone une heure",
-      cta: "Voilà",
+      prompt: (
+        <>
+          {t("In one sentence: what does")} \u201c{thing}\u201d {t("mean, concretely, for you?")}
+        </>
+      ),
+      placeholder: t("e.g. when I get home in the evening, I put my phone away for an hour"),
+      cta: t("There"),
     });
     const box: { r: Reformulation | null } = { r: null };
     await flow.widget((done) => (
@@ -402,50 +408,50 @@ async function branchCompass(flow: Flow, reveal: () => Promise<void>) {
       try {
         await createIntention(domainId, thing, box.r.situation, box.r.action, "should");
       } catch (e) {
-        await flow.say(`Je n'ai pas réussi à le poser dans ta boussole : ${humanError(e)}.`);
+        await flow.say(`${t("I couldn't place it on your compass")}: ${humanError(e)}.`);
         return;
       }
     } else if (domainId) {
       try {
         await createIntention(domainId, thing, null, raw, "should");
       } catch (e) {
-        await flow.say(`Je n'ai pas réussi à le poser dans ta boussole : ${humanError(e)}.`);
+        await flow.say(`${t("I couldn't place it on your compass")}: ${humanError(e)}.`);
         return;
       }
     }
     if (box.r) {
       await flow.say(
         <>
-          Quand <b>{box.r.situation}</b>, tu <b>{box.r.action}</b>. C'est posé.
+          {t("When")} <b>{box.r.situation}</b>, {t("you")} <b>{box.r.action}</b>. {t("It's set.")}
         </>,
       );
     } else {
-      await flow.say("Posé, avec tes mots.");
+      await flow.say(t("Set down, in your words."));
     }
   } else {
-    await flow.say("On étoffera petit à petit. Pas besoin de tout poser d'un coup.");
+    await flow.say(t("We'll build it up bit by bit. No need to set everything at once."));
   }
 }
 
 async function branchDecision(flow: Flow, reveal: () => Promise<void>) {
   const title = await flow.input({
-    prompt: "Dis-moi la décision comme elle vient. Pas besoin de bien la formuler.",
-    placeholder: "Ex. Est-ce que je change de job cette année ?",
+    prompt: t("Tell me the decision as it comes. It doesn't need to be well phrased."),
+    placeholder: t("e.g. Should I change jobs this year?"),
     multiline: true,
-    cta: "Explorer",
+    cta: t("Explore"),
   });
 
   let decisionId: string | null = null;
   try {
     decisionId = (await openDecision(title)).id;
   } catch (e) {
-    await flow.say(`Je n'ai pas pu ouvrir cette décision : ${humanError(e)}. On peut réessayer plus tard.`);
+    await flow.say(`${t("I couldn't open that decision")}: ${humanError(e)}. ${t("We can try again later.")}`);
     return;
   }
   if (!decisionId) return;
   await reveal();
   await safetyCheck(flow, title);
-  await flow.say("Ok. On respire, et on la prend par petits bouts.");
+  await flow.say(t("Okay. Let's breathe, and take it in small bites."));
 
   // 1) Widen the doors — at least two real ones, plus an explicit "none of these".
   let real: string[] = [];
@@ -459,18 +465,18 @@ async function branchDecision(flow: Flow, reveal: () => Promise<void>) {
     />
   ));
   if (real.length === 0) {
-    await flow.say("L'assistant n'a rien sorti. Pas grave, tes mots valent mieux — donne-moi une piste.");
+    await flow.say(t("The assistant came up empty. No matter — your words are better. Give me one path."));
   } else {
-    await flow.say("Voilà quelques portes qui s'ouvrent.");
+    await flow.say(t("Here are a few doors that could open."));
   }
   while (real.length < 2) {
     const own = await flow.input({
       prompt:
         real.length === 0
-          ? "Écris une première piste que tu envisages."
-          : "Encore une piste, pour ne pas te fermer de portes :",
-      placeholder: "Ex. Rester encore un an et réévaluer",
-      cta: "Ajouter",
+          ? t("Write one path you're considering.")
+          : t("One more path, so no doors close:"),
+      placeholder: t("e.g. Stay one more year and reassess"),
+      cta: t("Add"),
     });
     if (own.trim()) real.push(own.trim());
   }
@@ -482,17 +488,17 @@ async function branchDecision(flow: Flow, reveal: () => Promise<void>) {
       const o = await decisionAddOption(decisionId, label, false);
       opts.push({ id: o.id, label: o.label, isNull: false });
     } catch (e) {
-      await flow.say(`Je n'ai pas pu garder « ${label} » : ${humanError(e)}.`);
+      await flow.say(`${t("I couldn't keep")} \u201c${label}\u201d : ${humanError(e)}.`);
     }
   }
   try {
-    const n = await decisionAddOption(decisionId, "Aucune de celles-là — je garde ma carte à jouer", true);
+    const n = await decisionAddOption(decisionId, t("None of these — I keep my options open"), true);
     opts.push({ id: n.id, label: n.label, isNull: true });
   } catch (e) {
-    await flow.say(`Je n'ai pas pu ajouter « aucune de celles-là » : ${humanError(e)}.`);
+    await flow.say(`${t("I couldn't add the \"none of these\" option")}: ${humanError(e)}.`);
   }
   if (opts.length < 3) {
-    await flow.say("Il me faut au moins deux pistes et une porte de sortie pour avancer. Réessaie depuis ton carnet.");
+    await flow.say(t("I need at least two paths and one way out to move forward. Try again from your notebook."));
     return;
   }
 
@@ -503,13 +509,13 @@ async function branchDecision(flow: Flow, reveal: () => Promise<void>) {
       value: String(i),
       tone: !o.isNull && i === 0 ? "accent" : "default",
     })) as any,
-    { prompt: "Laquelle tu veux peser aujourd'hui ?" },
+    { prompt: t("Which one do you want to weigh today?") },
   );
   const chosen = opts[Number(pick)] ?? opts[0];
   try {
     await decisionChooseOption(decisionId, chosen.id);
   } catch (e) {
-    await flow.say(`Je n'ai pas pu la retenir : ${humanError(e)}.`);
+    await flow.say(`${t("I couldn't hold onto it")}: ${humanError(e)}.`);
     return;
   }
 
@@ -517,39 +523,39 @@ async function branchDecision(flow: Flow, reveal: () => Promise<void>) {
   const premortem = await flow.input({
     prompt: (
       <>
-        On la pèse. Imagine : dans un an, <b>{chosen.label}</b> a raté. Qu'est-ce qui a foiré ?
+        {t("Let's weigh it. Imagine: a year from now")} <b>{chosen.label}</b> {t("has failed. What went wrong?")}
       </>
     ),
-    placeholder: "Ex. J'ai sous-estimé la charge, et je me suis isolé",
-    cta: "Voilà",
+    placeholder: t("e.g. I underestimated the load, and I isolated myself"),
+    cta: t("There"),
   });
   try {
     await decisionSetPremortem(chosen.id, premortem);
   } catch (e) {
-    await flow.say(`Je n'ai pas pu noter ça : ${humanError(e)}.`);
+    await flow.say(`${t("I couldn't write that down")}: ${humanError(e)}.`);
   }
 
   const distance = await flow.input({
-    prompt: "Et avec du recul — dans 10 minutes, 10 mois, 10 ans, tu verras ce choix comment ?",
-    placeholder: "Ex. 10 min : soulagé. 10 mois : dubitatif. 10 ans : je saurai.",
+    prompt: t("And with some distance — in 10 minutes, 10 months, 10 years, how will you see this choice?"),
+    placeholder: t("e.g. 10 min: relieved. 10 months: unsure. 10 years: I'll know."),
     multiline: true,
     cta: "Ok",
   });
   try {
     await decisionSetDistance(decisionId, distance);
   } catch (e) {
-    await flow.say(`Je n'ai pas pu le garder : ${humanError(e)}.`);
+    await flow.say(`${t("I couldn't keep it")}: ${humanError(e)}.`);
   }
 
   const why = await flow.input({
-    prompt: "Au fond, qu'est-ce qui compte vraiment là-dedans pour toi ?",
-    placeholder: "Ex. Ma santé, et ne pas m'ennuyer",
-    cta: "C'est ça",
+    prompt: t("Deep down, what really counts for you here?"),
+    placeholder: t("e.g. My health, and not being bored"),
+    cta: t("That's it"),
   });
   try {
     await decisionSetWhy(decisionId, why);
   } catch (e) {
-    await flow.say(`Je n'ai pas pu le noter : ${humanError(e)}.`);
+    await flow.say(`${t("I couldn't note it")}: ${humanError(e)}.`);
   }
 
   // 4) Does it fit what matters? (only if the compass has something)
@@ -583,11 +589,11 @@ async function branchDecision(flow: Flow, reveal: () => Promise<void>) {
   }
 
   // 5) How much do you feel it?
-  const conf = await flow.ask(CONFIDENCE, { prompt: "À quel point tu le sens ?" });
+  const conf = await flow.ask(CONFIDENCE, { prompt: t("How much do you feel it?") });
   try {
     await decisionSetConfidence(decisionId, Number(conf));
   } catch (e) {
-    await flow.say(`Je n'ai pas pu retenir ta confiance : ${humanError(e)}.`);
+    await flow.say(`${t("I couldn't hold onto your confidence")}: ${humanError(e)}.`);
   }
 
   // 6) One tiny first step.
@@ -606,18 +612,18 @@ async function branchDecision(flow: Flow, reveal: () => Promise<void>) {
   if (stepTitle) {
     const keep = await flow.ask(
       [
-        { label: "Oui, je garde ce pas", value: "yes", tone: "accent" },
-        { label: "J'écris le mien", value: "mine" },
+        { label: t("Yes, I'll keep this step"), value: "yes", tone: "accent" },
+        { label: t("I'll write my own"), value: "mine" },
       ],
-      { prompt: <>Un tout petit pas pour cette semaine : <b>{stepTitle}</b></> },
+      { prompt: <>A very small step for this week: <b>{stepTitle}</b></> },
     );
     if (keep === "mine") stepTitle = "";
   }
   if (!stepTitle) {
     stepTitle = await flow.input({
-      prompt: "Quel est le tout premier petit geste, faisable cette semaine ?",
-      placeholder: "Ex. Envoyer un message à quelqu'un qui a fait ce choix",
-      cta: "C'est mon pas",
+      prompt: t("What's the very first small gesture, doable this week?"),
+      placeholder: t("e.g. Message someone who has made this choice"),
+      cta: t("That's my step"),
     });
   }
 
@@ -625,7 +631,7 @@ async function branchDecision(flow: Flow, reveal: () => Promise<void>) {
     await decisionAddStory(decisionId, stepTitle, stepBox.value?.why ?? null, null, null);
   } catch (e) {
     await flow.say(
-      `Je n'ai pas pu enregistrer ton pas : ${humanError(e)}. On le notera depuis ton carnet.`
+      `${t("I couldn't save your step")}: ${humanError(e)}. ${t("We'll note it from your notebook.")}`,
     );
     return;
   }
@@ -633,12 +639,12 @@ async function branchDecision(flow: Flow, reveal: () => Promise<void>) {
     await decisionFinalize(decisionId);
   } catch (e) {
     await flow.say(
-      `Ton pas est gardé, mais je n'ai pas pu clore la décision : ${humanError(e)}. On la complètera depuis ton carnet.`
+      `${t("Your step is kept, but I couldn't close the decision")}: ${humanError(e)}. ${t("We'll finish it from your notebook.")}`,
     );
     return;
   }
   await flow.say(
-    "C'est posé, proprement. Tu la retrouveras dans ton carnet quand tu voudras faire le point. ✓"
+    t("It's set down, properly. You'll find it in your notebook whenever you want to check in. ✓"),
   );
 }
 
@@ -677,7 +683,7 @@ function ReformulateInline({
             </svg>
           </MotionBox>
           <Text fontSize="sm" color="fg.muted">
-            Je le mets en mots clairs…
+            {t("Putting it into clear words…")}
           </Text>
         </HStack>
       </Box>

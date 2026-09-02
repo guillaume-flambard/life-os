@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import type { ReasoningStream } from "../lib/reasoning";
 import "../guide/chat.css";
+import { t } from "../i18n";
 
 // Live reasoning as a monochrome timeline, hand-written to match the thread.
 // The streamed thinking is split into short steps on a hairline rail; the
@@ -48,9 +49,9 @@ export function ReasoningPanel({ stream }: { stream: ReasoningStream }) {
       >
         {thinking ? <span className="rs-dot" /> : <span className="rs-spark">{SPARK}</span>}
         {thinking ? (
-          <span className="rs-lead">Réflexion</span>
+          <span className="rs-lead">{t("Thinking")}</span>
         ) : (
-          <span className="rs-lead rest">Réfléchi pendant {secs}&nbsp;s</span>
+          <span className="rs-lead rest">{t("Thought for")} {secs}&nbsp;s</span>
         )}
         {thinking && <span className="rs-timer">{secs}&nbsp;s</span>}
         {!thinking && (

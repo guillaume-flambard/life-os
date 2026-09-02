@@ -20,6 +20,7 @@ import { Btn, Field } from "../ui/controls";
 import { Card, FieldLabel, PageHeader } from "../ui/primitives";
 import { Async, EmptyState, humanError, useAsync } from "../ui/states";
 import { toaster } from "../ui/toaster";
+import { t } from "../i18n";
 
 const PRIORITY_ORDER: Priority[] = ["must", "should", "may"];
 
@@ -32,15 +33,15 @@ export function Compass({ ctx }: { ctx: Ctx }) {
 
   return (
     <>
-      <PageHeader title="Ta boussole" sub="Ce qui compte pour toi, mis en mots — par pan de vie." />
+      <PageHeader title={t("Your compass")} sub={t("What matters to you, put into words — one life area at a time.")} />
       <Async
       state={domains}
       empty={(d) =>
         d.length === 0 ? (
           <EmptyState
             icon="🧭"
-            title="Ta boussole est vierge"
-            hint="Ajoute un premier pan de ta vie — santé, travail, proches… ce qui te vient."
+            title={t("Your compass is blank")}
+            hint={t("Add the first area of your life — health, work, the people you love… whatever comes.")}
             action={
               <AddDomainInline
                 value={newDomain}
@@ -51,7 +52,7 @@ export function Compass({ ctx }: { ctx: Ctx }) {
                     setNewDomain("");
                     domains.reload();
                   } catch (e) {
-                    toaster.create({ type: "error", title: "Oups", description: humanError(e) });
+                    toaster.create({ type: "error", title: t("Oops"), description: humanError(e) });
                   }
                 }}
               />
@@ -80,7 +81,7 @@ export function Compass({ ctx }: { ctx: Ctx }) {
                   domains.reload();
                   setActive(d);
                 } catch (e) {
-                  toaster.create({ type: "error", title: "Oups", description: humanError(e) });
+                  toaster.create({ type: "error", title: t("Oops"), description: humanError(e) });
                 }
               }}
             />
@@ -106,8 +107,8 @@ function IntentionList({ domain, ctx }: { domain: Domain; ctx: Ctx }) {
           <Card>
             <EmptyState
               icon="🌱"
-              title={`Rien encore dans « ${domain.name} »`}
-              hint="Qu'est-ce qui compte pour toi ici ? Écris-le simplement."
+              title={`${t("Nothing here yet in")} "${domain.name}"`}
+              hint={t("What matters to you here? Write it simply.")}
             />
             <AddIntention domainId={domain.id} onAdded={intentions.reload} />
           </Card>
@@ -158,7 +159,7 @@ function IntentionRow({
       await setIntentionPriority(it.id, next);
       onChange();
     } catch (e) {
-      toaster.create({ type: "error", title: "Oups", description: humanError(e) });
+      toaster.create({ type: "error", title: t("Oops"), description: humanError(e) });
     } finally {
       setSaving(false);
     }
@@ -181,8 +182,8 @@ function IntentionRow({
         </Text>
         {(it.situation || it.action) && (
           <Text fontSize="xs" color="fg.muted" lineHeight="1.5">
-            {it.situation ? `Quand ${it.situation}, ` : ""}
-            {it.action ? `je ${it.action}.` : ""}
+            {it.situation ? `${t("When")} ${it.situation}, ` : ""}
+            {it.action ? `${t("I")} ${it.action}.` : ""}
           </Text>
         )}
         {expert && (
@@ -208,7 +209,7 @@ function IntentionRow({
             await archiveIntention(it.id);
             onChange();
           } catch (e) {
-            toaster.create({ type: "error", title: "Oups", description: humanError(e) });
+            toaster.create({ type: "error", title: t("Oops"), description: humanError(e) });
           }
         }}
       >
@@ -240,7 +241,7 @@ function AddIntention({ domainId, onAdded }: { domainId: string; onAdded: () => 
       setPriority("should");
       onAdded();
     } catch (e) {
-      toaster.create({ type: "error", title: "Oups", description: humanError(e) });
+      toaster.create({ type: "error", title: t("Oops"), description: humanError(e) });
     } finally {
       setBusy(null);
     }
@@ -254,7 +255,7 @@ function AddIntention({ domainId, onAdded }: { domainId: string; onAdded: () => 
       setReform({ situation: r.situation, action: r.action });
       if (r.statement) setText(r.statement);
     } catch {
-      toaster.create({ type: "info", title: "L'assistant n'a rien ajouté", description: "Ta phrase suffit." });
+      toaster.create({ type: "info", title: t("The assistant added nothing"), description: t("Your sentence is enough.") });
     } finally {
       setBusy(null);
     }
@@ -264,12 +265,12 @@ function AddIntention({ domainId, onAdded }: { domainId: string; onAdded: () => 
     <Stack gap="3" pt="1">
       <HStack>
         <Field
-          placeholder="Ce qui compte pour toi ici…"
+          placeholder={t("What matters to you here…")}
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && save()}
         />
-        <Btn ghost onClick={assist} loading={busy === "ai"} disabled={!text.trim()} title="Reformuler">
+        <Btn ghost onClick={assist} loading={busy === "ai"} disabled={!text.trim()} title={t("Rephrase")}>
           <IconSparkle boxSize="4" />
         </Btn>
       </HStack>
@@ -277,14 +278,14 @@ function AddIntention({ domainId, onAdded }: { domainId: string; onAdded: () => 
         <FadeIn>
           <Box bg="surface.muted" rounded="l2" px="3.5" py="2.5">
             <Text fontSize="sm" color="fg.muted">
-              Quand <b>{reform.situation}</b>, je <b>{reform.action}</b>.
+              {t("When")} <b>{reform.situation}</b>, {t("I")} <b>{reform.action}</b>.
             </Text>
           </Box>
         </FadeIn>
       )}
       <HStack>
         <Stack gap="1" flex="1">
-          <FieldLabel>Importance</FieldLabel>
+          <FieldLabel>{t("Weight")}</FieldLabel>
           <Wrap gap="1.5">
             {PRIORITY_ORDER.map((p) => (
               <button
@@ -300,7 +301,7 @@ function AddIntention({ domainId, onAdded }: { domainId: string; onAdded: () => 
         </Stack>
         <Box alignSelf="end">
           <Btn primary onClick={save} loading={busy === "save"} disabled={!text.trim()}>
-            <IconPlus boxSize="4" /> Ajouter
+            <IconPlus boxSize="4" /> {t("Add")}
           </Btn>
         </Box>
       </HStack>
@@ -320,13 +321,13 @@ function AddDomainInline({
   return (
     <HStack maxW="sm">
       <Field
-        placeholder="Ex. Santé"
+        placeholder={t("e.g. Health")}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && onAdd()}
       />
       <Btn primary onClick={onAdd} disabled={!value.trim()}>
-        Ajouter
+        {t("Add")}
       </Btn>
     </HStack>
   );
@@ -338,14 +339,14 @@ function AddDomainPopoverButton({ onAdd }: { onAdd: (name: string) => void }) {
   if (!open)
     return (
       <Btn sm ghost onClick={() => setOpen(true)}>
-        <IconPlus boxSize="4" /> Pan
+        <IconPlus boxSize="4" /> {t("Area")}
       </Btn>
     );
   return (
     <HStack>
       <Field
         autoFocus
-        placeholder="Nom du pan"
+        placeholder={t("Area name")}
         value={name}
         onChange={(e) => setName(e.target.value)}
         onKeyDown={(e) => {

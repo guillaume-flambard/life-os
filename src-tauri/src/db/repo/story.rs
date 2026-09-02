@@ -36,7 +36,7 @@ pub fn list_open_stories(conn: &Connection) -> Result<Vec<OpenStory>, ApiError> 
 
 pub fn set_story_status(conn: &Connection, id: &str, status: &str) -> Result<(), ApiError> {
     if !STATUSES.contains(&status) {
-        return Err(ApiError::invalid(format!("état inconnu: {status}")));
+        return Err(ApiError::invalid(format!("unknown status: {status}")));
     }
     super::with_tx(conn, |conn| {
         let now = Utc::now().to_rfc3339();

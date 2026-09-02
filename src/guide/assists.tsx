@@ -8,6 +8,7 @@ import {
 import { useReasoningStream } from "../lib/reasoning";
 import { ReasoningPanel } from "../ui/Reasoning";
 import { MotionBox } from "../ui/motion";
+import { t } from "../i18n";
 
 // Small components that run one local-AI assist and stream its reasoning inline
 // inside the conversation. Each calls `onDone` exactly once with its result
@@ -39,7 +40,7 @@ export function OptionFinder({
       onDone([]);
     }
   });
-  return <AssistShell reasoning={reasoning} label="Je cherche les portes qui s'ouvrent…" />;
+  return <AssistShell reasoning={reasoning} label={t("Looking for the doors that could open…")} />;
 }
 
 export function AlignFinder({
@@ -60,7 +61,7 @@ export function AlignFinder({
       onDone(null);
     }
   });
-  return <AssistShell reasoning={reasoning} label="Je regarde si ça te ressemble…" />;
+  return <AssistShell reasoning={reasoning} label={t("Checking whether it sounds like you…")} />;
 }
 
 export function StepFinder({
@@ -79,7 +80,7 @@ export function StepFinder({
       onDone(null);
     }
   });
-  return <AssistShell reasoning={reasoning} label="Je cherche un tout petit premier pas…" />;
+  return <AssistShell reasoning={reasoning} label={t("Looking for one very small first step…")} />;
 }
 
 function AssistShell({

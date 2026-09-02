@@ -3,6 +3,7 @@ import type { Ctx } from "../App";
 import { useColorMode } from "../provider";
 import { IconHeart, IconMoon, IconSun } from "./icons";
 import { navigate, useRoute, type Route } from "./router";
+import { t } from "../i18n";
 
 function NeedleMark() {
   return (
@@ -27,12 +28,12 @@ function NeedleMark() {
 }
 
 const SECTIONS: { route: Route; label: string; icon: string }[] = [
-  { route: "home", label: "Le fil", icon: "💬" },
-  { route: "compass", label: "Ma boussole", icon: "🧭" },
-  { route: "daily", label: "Aujourd'hui", icon: "🌤️" },
-  { route: "carnet", label: "Mon carnet", icon: "📖" },
-  { route: "review", label: "Le point", icon: "🍃" },
-  { route: "settings", label: "Réglages", icon: "⚙️" },
+  { route: "home", label: "The thread", icon: "💬" },
+  { route: "compass", label: "My compass", icon: "🧭" },
+  { route: "daily", label: "Today", icon: "🌤️" },
+  { route: "carnet", label: "My notebook", icon: "📖" },
+  { route: "review", label: "The check-in", icon: "🍃" },
+  { route: "settings", label: "Settings", icon: "⚙️" },
 ];
 
 export function Header({ ctx, revealed }: { ctx: Ctx; revealed: boolean }) {
@@ -59,7 +60,7 @@ export function Header({ ctx, revealed }: { ctx: Ctx; revealed: boolean }) {
       </Text>
 
       <HStack ml="auto" gap="1.5">
-        <IconButton size="xs" variant="ghost" color="fg.muted" aria-label="Thème" onClick={toggle}>
+        <IconButton size="xs" variant="ghost" color="fg.muted" aria-label={t("Theme")} onClick={toggle}>
           {color === "dark" ? <IconSun boxSize="4" /> : <IconMoon boxSize="4" />}
         </IconButton>
 
@@ -67,7 +68,7 @@ export function Header({ ctx, revealed }: { ctx: Ctx; revealed: boolean }) {
           size="xs"
           variant="ghost"
           color="fg.muted"
-          aria-label="Besoin de parler"
+          aria-label={t("Need to talk")}
           onClick={() => navigate("distress")}
           _hover={{ color: "accent.emphasis", bg: "accent.subtle" }}
         >
@@ -103,7 +104,7 @@ export function Header({ ctx, revealed }: { ctx: Ctx; revealed: boolean }) {
                       <Box as="span" mr="2">
                         {expert ? "🔧" : "🌱"}
                       </Box>
-                      {expert ? "Repasser en simple" : "Mode expert"}
+                      {expert ? t("Back to simple") : t("Expert mode")}
                     </Menu.Item>
                   </Menu.Content>
                 </Menu.Positioner>

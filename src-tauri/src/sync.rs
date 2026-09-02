@@ -105,19 +105,19 @@ fn sanitize_row(
     for (col, val) in obj {
         if !allowed.contains(col) {
             return Err(ApiError::invalid(format!(
-                "instantané illisible : colonne inconnue « {col} » dans « {table} »"
+                "unreadable snapshot: unknown column '{col}' in '{table}'"
             )));
         }
         let is_ts = col == "ts" || col.ends_with("_at");
         if is_ts && !val.is_null() {
             let Some(s) = val.as_str() else {
                 return Err(ApiError::invalid(format!(
-                    "instantané illisible : « {col} » de « {table} » n'est pas un horodatage"
+                    "unreadable snapshot: '{col}' of '{table}' is not a timestamp"
                 )));
             };
             if DateTime::parse_from_rfc3339(s).is_err() {
                 return Err(ApiError::invalid(format!(
-                    "instantané illisible : « {col} » de « {table} » n'est pas un horodatage valide"
+                    "unreadable snapshot: '{col}' of '{table}' is not a valid timestamp"
                 )));
             }
         }
@@ -247,7 +247,7 @@ pub fn import_merge(conn: &Connection, snapshot: &J) -> Result<MergeSummary, Api
     let tables = snapshot
         .get("tables")
         .and_then(|v| v.as_object())
-        .ok_or_else(|| ApiError::invalid("instantané illisible".to_string()))?;
+        .ok_or_else(|| ApiError::invalid("unreadable snapshot".to_string()))?;
 
     let tx = conn.unchecked_transaction().map_err(ApiError::db)?;
     let mut sum = MergeSummary::default();
@@ -284,11 +284,11 @@ pub fn decrypt(ciphertext: &[u8], passphrase: &str) -> Result<Vec<u8>, String> {
     let dec = age::Decryptor::new(ciphertext).map_err(|e| e.to_string())?;
     let pass = match dec {
         age::Decryptor::Passphrase(d) => d,
-        _ => return Err("format d'instantané inattendu".to_string()),
+        _ => return Err("unexpected snapshot format".to_string()),
     };
     let mut reader = pass
         .decrypt(&age::secrecy::Secret::new(passphrase.to_owned()), None)
-        .map_err(|_| "mauvaise phrase secrète".to_string())?;
+        .map_err(|_| "wrong passphrase".to_string())?;
     let mut out = Vec::new();
     reader.read_to_end(&mut out).map_err(|e| e.to_string())?;
     Ok(out)

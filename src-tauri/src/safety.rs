@@ -22,6 +22,8 @@ const DISTRESS: &[&str] = &[
     "disparaître pour toujours",
     "personne ne me regretterait",
     // English
+    "ending my life",
+    "take my own life",
     "want to die",
     "kill myself",
     "end my life",
@@ -32,68 +34,85 @@ const DISTRESS: &[&str] = &[
     "suicidal",
 ];
 
-/// High-stakes keywords by category (money / health / legal). Non-blocking nudge.
+/// High-stakes keywords by category (money / health / legal), FR + EN.
+/// Non-blocking nudge; the category key is not user-facing today.
 const HIGH_STAKES: &[(&str, &[&str])] = &[
     (
-        "argent",
+        "money",
         &[
             "hypothèque",
+            "mortgage",
             "emprunt",
             "faire faillite",
+            "go bankrupt",
             "toutes mes économies",
+            "all my savings",
             "tout mon argent",
+            "all my money",
             "crédit immobilier",
             "endetter",
+            "go into debt",
         ],
     ),
     (
-        "santé",
+        "health",
         &[
             "cancer",
             "opération",
+            "surgery",
             "chirurgie",
             "arrêter mon traitement",
+            "stop my treatment",
             "maladie grave",
+            "serious illness",
             "chimio",
+            "chemo",
             "diagnostic",
         ],
     ),
     (
-        "juridique",
+        "legal",
         &[
             "divorce",
             "avocat",
+            "lawyer",
             "procès",
+            "lawsuit",
             "tribunal",
+            "court",
             "garde des enfants",
+            "child custody",
             "héritage",
+            "inheritance",
             "porter plainte",
+            "press charges",
         ],
     ),
 ];
 
-/// French-first crisis resources, plus the international directory. All offline.
+/// Crisis resources: the French national lines for the app's home country, plus
+/// the international directory. All offline.
 pub fn resources() -> Vec<Resource> {
     vec![
         Resource {
-            name: "3114 — Prévention du suicide".into(),
+            name: "3114 — Suicide prevention (France)".into(),
             contact: "3114".into(),
-            note: "Ligne nationale, gratuite, 24h/24 et 7j/7.".into(),
+            note: "National line, free, 24/7.".into(),
         },
         Resource {
             name: "SOS Amitié".into(),
             contact: "09 72 39 40 50".into(),
-            note: "Écoute anonyme, 24h/24.".into(),
-        },
-        Resource {
-            name: "Urgences".into(),
-            contact: "112 (ou 15)".into(),
-            note: "En cas de danger immédiat.".into(),
+            note: "Anonymous listening, 24/7.".into(),
         },
         Resource {
             name: "Find A Helpline".into(),
             contact: "findahelpline.com".into(),
-            note: "Lignes d'écoute vérifiées, par pays.".into(),
+            note: "Verified helplines, country by country.".into(),
+        },
+        Resource {
+            name: "Emergencies".into(),
+            contact: "112 (or 15)".into(),
+            note: "If danger is immediate.".into(),
         },
     ]
 }
@@ -132,6 +151,13 @@ mod tests {
     }
 
     #[test]
+    fn detects_crisis_in_english() {
+        let r = screen("some days I think about ending my life");
+        assert!(r.distress);
+        assert!(!r.resources.is_empty());
+    }
+
+    #[test]
     fn does_not_overfire_on_ordinary_sadness() {
         let r = screen("je suis un peu triste aujourd'hui et fatigué");
         assert!(!r.distress);
@@ -142,6 +168,10 @@ mod tests {
     fn flags_high_stakes_without_distress() {
         let r = screen("dois-je arrêter mon traitement contre le cancer ?");
         assert!(!r.distress);
-        assert_eq!(r.high_stakes.as_deref(), Some("santé"));
+        assert_eq!(r.high_stakes.as_deref(), Some("health"));
+
+        let r = screen("should I take out a mortgage and move?");
+        assert!(!r.distress);
+        assert_eq!(r.high_stakes.as_deref(), Some("money"));
     }
 }

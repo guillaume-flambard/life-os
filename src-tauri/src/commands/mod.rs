@@ -17,8 +17,8 @@ use tauri::{AppHandle, State};
 pub fn db_health(db: State<'_, Db>) -> Health {
     let conn = db.0.lock().unwrap();
     match repo::schema_ready(&conn) {
-        Ok(true) => Health::ok("Base chiffrée prête".to_string()),
-        Ok(false) => Health::ko("Schéma manquant".to_string()),
+        Ok(true) => Health::ok("Encrypted database ready".to_string()),
+        Ok(false) => Health::ko("Missing schema".to_string()),
         Err(e) => Health::ko(format!("Erreur base: {e}")),
     }
 }
@@ -433,7 +433,7 @@ pub async fn memory_backfill(db: State<'_, Db>, ai: State<'_, Ollama>) -> Result
             Err(e) => {
                 if n == 0 {
                     return Err(ApiError::ai(format!(
-                        "modèle d'embedding indisponible : {e}"
+                        "embedding model unavailable: {e}"
                     )));
                 }
                 break;
@@ -490,7 +490,7 @@ pub fn export_data(db: State<'_, Db>) -> Result<String, ApiError> {
         admin::export_markdown(&conn)?
     };
     let home = std::env::var("HOME")
-        .map_err(|_| ApiError::invalid("dossier utilisateur introuvable".to_string()))?;
+        .map_err(|_| ApiError::invalid("user directory not found".to_string()))?;
     let downloads = std::path::Path::new(&home).join("Downloads");
     let dir = if downloads.is_dir() {
         downloads
@@ -601,7 +601,7 @@ pub fn captures_recent(db: State<'_, Db>, limit: Option<i64>) -> Result<Vec<Capt
 pub fn sync_export(db: State<'_, Db>, passphrase: String) -> Result<String, ApiError> {
     if passphrase.len() < 8 {
         return Err(ApiError::invalid(
-            "choisis une phrase secrète d'au moins 8 caractères".to_string(),
+            "choose a passphrase of at least 8 characters".to_string(),
         ));
     }
     let snapshot = {
@@ -612,7 +612,7 @@ pub fn sync_export(db: State<'_, Db>, passphrase: String) -> Result<String, ApiE
     let encrypted = sync::encrypt(&bytes, &passphrase).map_err(ApiError::invalid)?;
 
     let home = std::env::var("HOME")
-        .map_err(|_| ApiError::invalid("dossier utilisateur introuvable".to_string()))?;
+        .map_err(|_| ApiError::invalid("user directory not found".to_string()))?;
     let downloads = std::path::Path::new(&home).join("Downloads");
     let dir = if downloads.is_dir() {
         downloads
@@ -635,10 +635,10 @@ pub fn sync_import(
     passphrase: String,
 ) -> Result<MergeSummary, ApiError> {
     let encrypted =
-        std::fs::read(&path).map_err(|_| ApiError::invalid("fichier introuvable".to_string()))?;
+        std::fs::read(&path).map_err(|_| ApiError::invalid("file not found".to_string()))?;
     let bytes = sync::decrypt(&encrypted, &passphrase).map_err(ApiError::invalid)?;
     let snapshot: serde_json::Value = serde_json::from_slice(&bytes)
-        .map_err(|_| ApiError::invalid("instantané illisible".to_string()))?;
+        .map_err(|_| ApiError::invalid("unreadable snapshot".to_string()))?;
     let conn = db.0.lock().unwrap();
     sync::import_merge(&conn, &snapshot)
 }
@@ -647,7 +647,7 @@ pub fn sync_import(
 #[tauri::command]
 pub fn erase_all(db: State<'_, Db>, confirm: String) -> Result<(), ApiError> {
     if confirm != "EFFACER" {
-        return Err(ApiError::invalid("confirmation manquante".to_string()));
+        return Err(ApiError::invalid("missing confirmation".to_string()));
     }
     let conn = db.0.lock().unwrap();
     admin::erase_all(&conn)

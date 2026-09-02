@@ -18,7 +18,7 @@ pub fn add_capture(
 ) -> Result<Capture, ApiError> {
     let content = content.trim();
     if content.is_empty() {
-        return Err(ApiError::invalid("il n'y a rien à noter".to_string()));
+        return Err(ApiError::invalid("there is nothing to note".to_string()));
     }
     if !KINDS.contains(&kind) {
         return Err(ApiError::invalid(format!("type inconnu: {kind}")));

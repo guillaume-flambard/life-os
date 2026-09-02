@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { isApiError } from "../lib/ipc";
 import { Btn } from "./controls";
 import { FadeIn } from "./motion";
+import { t } from "../i18n";
 
 // --- Async state helper ---------------------------------------------------
 // One hook every screen uses so loading / error / empty are handled the same
@@ -19,7 +20,7 @@ export function humanError(e: unknown): string {
   if (isApiError(e)) return e.message;
   if (e instanceof Error) return e.message;
   if (typeof e === "string") return e;
-  return "Quelque chose n'a pas fonctionné.";
+  return t("Something didn't work.");
 }
 
 export function useAsync<T>(fn: () => Promise<T>, deps: unknown[] = []): AsyncState<T> {
@@ -80,7 +81,7 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry?: ()
         >
           <Text fontSize="2xl">🫧</Text>
           <Text fontWeight="medium" color="fg">
-            Ça n'a pas marché
+            {t("Something didn't work")}
           </Text>
           <Text fontSize="sm" color="fg.muted">
             {message}

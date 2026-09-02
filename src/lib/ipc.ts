@@ -1,4 +1,5 @@
 import { invoke as tauriInvoke } from "@tauri-apps/api/core";
+import { t } from "../i18n";
 
 // Outside the Tauri shell (plain browser on the vite dev server), route
 // commands to the devserve bridge (cargo run --bin devserve) so the real
@@ -63,6 +64,19 @@ export async function setMode(mode: UiMode): Promise<void> {
   await setSetting(MODE_KEY, mode);
 }
 
+const LANG_KEY = "ui_lang";
+
+export type UiLang = "en" | "fr";
+
+export async function getLang(): Promise<UiLang> {
+  const v = await getSetting(LANG_KEY);
+  return v === "fr" ? "fr" : "en";
+}
+
+export async function setUiLang(lang: UiLang): Promise<void> {
+  await setSetting(LANG_KEY, lang);
+}
+
 // --- Compass --------------------------------------------------------------
 
 export type Priority = "must" | "should" | "may";
@@ -105,10 +119,11 @@ export function isApiError(e: unknown): e is ApiError {
 }
 
 // Human façade for priorities — never show the engine terms in human mode.
+// Functions so labels follow the active UI language.
 export const PRIORITY_LABELS: Record<Priority, string> = {
-  must: "ligne rouge",
-  should: "j'aimerais",
-  may: "bonus",
+  get must() { return t("red line"); },
+  get should() { return t("I'd like to"); },
+  get may() { return t("bonus"); },
 };
 
 export const listDomains = () => invoke<Domain[]>("list_domains");
@@ -274,10 +289,10 @@ export const decisionGenerateStory = (context: string) =>
 export type Outcome = "better" | "as_expected" | "worse" | "too_early";
 
 export const OUTCOME_LABELS: Record<Outcome, string> = {
-  better: "mieux que je pensais",
-  as_expected: "comme je voulais",
-  worse: "moins que j'aurais aimé",
-  too_early: "trop tôt pour le dire",
+  get better() { return t("better than I thought"); },
+  get as_expected() { return t("as I hoped"); },
+  get worse() { return t("less than I hoped"); },
+  get too_early() { return t("too early to tell"); },
 };
 
 export interface Review {

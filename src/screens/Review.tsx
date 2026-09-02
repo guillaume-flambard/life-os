@@ -14,6 +14,7 @@ import { Btn, Area } from "../ui/controls";
 import { Card, PageHeader, SectionTitle } from "../ui/primitives";
 import { Async, EmptyState, humanError, useAsync } from "../ui/states";
 import { toaster } from "../ui/toaster";
+import { t } from "../i18n";
 
 export function Review({ ctx }: { ctx: Ctx }) {
   void ctx;
@@ -35,7 +36,7 @@ export function Review({ ctx }: { ctx: Ctx }) {
       setSavedNote(true);
       noteTimer.current = window.setTimeout(() => setSavedNote(false), 2500);
     } catch (e) {
-      toaster.create({ type: "error", title: "Oups", description: humanError(e) });
+      toaster.create({ type: "error", title: t("Oops"), description: humanError(e) });
     } finally {
       setSavingNote(false);
     }
@@ -43,25 +44,25 @@ export function Review({ ctx }: { ctx: Ctx }) {
 
   return (
     <Stack gap="6">
-      <PageHeader title="Le point" sub="Regarder en arrière, sans se juger." />
+      <PageHeader title={t("The check-in")} sub={t("Looking back, without judging.")} />
       <Card bg="accent.subtle" borderColor="transparent">
         <Stack gap="1.5">
-          <Text fontWeight="semibold">Faire le point, c'est regarder — pas se juger.</Text>
+          <Text fontWeight="semibold">{t("Checking in is looking — not judging.")}</Text>
           <Text fontSize="sm" color="fg.muted" lineHeight="1.6">
-            Ce que tu voulais, ce qui s'est passé, ce que tu en apprends. Rien de plus.
+            {t("What you hoped for, what happened, what it teaches you. Nothing more.")}
           </Text>
         </Stack>
       </Card>
 
       <Box>
-        <SectionTitle hint="Tu les as explorées. Prêtes à rejoindre ta boussole ?">
-          Décisions à intégrer
+        <SectionTitle hint={t("You explored them. Ready to join your compass?")}>
+          {t("Decisions to integrate")}
         </SectionTitle>
         <Async
           state={proposed}
           empty={(d) =>
             d.length === 0 ? (
-              <EmptyState icon="🍃" title="Rien en attente" hint="Quand une décision est prête, elle apparaît ici pour l'intégrer." />
+              <EmptyState icon="🍃" title={t("Nothing waiting")} hint={t("When a decision is ready, it appears here to be integrated.")} />
             ) : false
           }
         >
@@ -80,12 +81,12 @@ export function Review({ ctx }: { ctx: Ctx }) {
       </Box>
 
       <Box>
-        <SectionTitle>Écrire pour faire le point</SectionTitle>
+        <SectionTitle>{t("Write it down to check in")}</SectionTitle>
         <Card>
           <Stack gap="3">
             <Area
               rows={3}
-              placeholder="Sans filtre. Ce qui vient."
+              placeholder={t("No filter. Whatever comes.")}
               value={note}
               onChange={(e) => setNote(e.target.value)}
             />
@@ -94,13 +95,13 @@ export function Review({ ctx }: { ctx: Ctx }) {
                 <FadeIn>
                   <HStack gap="1.5" color="fg.muted">
                     <IconCheck boxSize="4" />
-                    <Text fontSize="sm">Gardé.</Text>
+                    <Text fontSize="sm">{t("Kept.")}</Text>
                   </HStack>
                 </FadeIn>
               )}
               <Box ml="auto">
                 <Btn primary onClick={saveReflection} loading={savingNote} disabled={!note.trim()}>
-                  Garder ce point
+                  {t("Keep this check-in")}
                 </Btn>
               </Box>
             </HStack>
@@ -124,10 +125,10 @@ function ProposedRow({ decision, onApplied }: { decision: DecisionFull; onApplie
         target_intention_id: dl.target_intention_id,
       }));
       await applyDecision(decision.id, resolutions);
-      toaster.create({ type: "success", title: "Intégré à ta boussole" });
+      toaster.create({ type: "success", title: t("Integrated into your compass") });
       onApplied();
     } catch (e) {
-      toaster.create({ type: "error", title: "Impossible d'intégrer", description: humanError(e) });
+      toaster.create({ type: "error", title: t("Couldn't integrate"), description: humanError(e) });
     } finally {
       setBusy(false);
     }
@@ -148,7 +149,7 @@ function ProposedRow({ decision, onApplied }: { decision: DecisionFull; onApplie
         </Stack>
         <Box flexShrink="0">
           <Btn sm primary onClick={apply} loading={busy}>
-            Intégrer
+            {t("Integrate")}
           </Btn>
         </Box>
       </HStack>

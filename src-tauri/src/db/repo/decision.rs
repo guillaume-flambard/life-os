@@ -22,7 +22,7 @@ pub fn open_decision(conn: &Connection, title: &str) -> Result<DecisionFull, Api
     let title = title.trim();
     if title.is_empty() {
         return Err(ApiError::invalid(
-            "dis-moi quelle décision te trotte".to_string(),
+            "tell me which decision is on your mind".to_string(),
         ));
     }
     let id = super::with_tx(conn, |conn| {
@@ -46,7 +46,7 @@ pub fn set_reality(conn: &Connection, id: &str, text: &str) -> Result<(), ApiErr
             "UPDATE decisions SET emotional_context=?2, updated_at=?3 WHERE id=?1 AND deleted_at IS NULL",
             params![id, text, now],
         )?;
-        super::require_affected(n, "cette décision n'existe plus")?;
+        super::require_affected(n, "this decision no longer exists")?;
         events::record(conn, "decision.reality_set", "decision", id, None)?;
         Ok(())
     })
@@ -59,7 +59,7 @@ pub fn set_distance(conn: &Connection, id: &str, text: &str) -> Result<(), ApiEr
             "UPDATE decisions SET distance_10_10_10=?2, updated_at=?3 WHERE id=?1 AND deleted_at IS NULL",
             params![id, text, now],
         )?;
-        super::require_affected(n, "cette décision n'existe plus")?;
+        super::require_affected(n, "this decision no longer exists")?;
         events::record(conn, "decision.distance_set", "decision", id, None)?;
         Ok(())
     })
@@ -72,7 +72,7 @@ pub fn set_alignment(conn: &Connection, id: &str, note: &str) -> Result<(), ApiE
             "UPDATE decisions SET values_alignment_note=?2, updated_at=?3 WHERE id=?1 AND deleted_at IS NULL",
             params![id, note, now],
         )?;
-        super::require_affected(n, "cette décision n'existe plus")?;
+        super::require_affected(n, "this decision no longer exists")?;
         events::record(conn, "decision.alignment_set", "decision", id, None)?;
         Ok(())
     })
@@ -85,7 +85,7 @@ pub fn set_why(conn: &Connection, id: &str, text: &str) -> Result<(), ApiError> 
             "UPDATE decisions SET proposal=?2, updated_at=?3 WHERE id=?1 AND deleted_at IS NULL",
             params![id, text, now],
         )?;
-        super::require_affected(n, "cette décision n'existe plus")?;
+        super::require_affected(n, "this decision no longer exists")?;
         events::record(conn, "decision.why_set", "decision", id, None)?;
         Ok(())
     })
@@ -93,7 +93,7 @@ pub fn set_why(conn: &Connection, id: &str, text: &str) -> Result<(), ApiError> 
 
 pub fn set_confidence(conn: &Connection, id: &str, confidence: i64) -> Result<(), ApiError> {
     if !(0..=100).contains(&confidence) {
-        return Err(ApiError::invalid("la confiance va de 0 à 100".to_string()));
+        return Err(ApiError::invalid("confidence goes from 0 to 100".to_string()));
     }
     super::with_tx(conn, |conn| {
         let now = Utc::now().to_rfc3339();
@@ -101,7 +101,7 @@ pub fn set_confidence(conn: &Connection, id: &str, confidence: i64) -> Result<()
             "UPDATE decisions SET confidence=?2, updated_at=?3 WHERE id=?1 AND deleted_at IS NULL",
             params![id, confidence, now],
         )?;
-        super::require_affected(n, "cette décision n'existe plus")?;
+        super::require_affected(n, "this decision no longer exists")?;
         events::record(
             conn,
             "decision.confidence_set",
@@ -120,7 +120,7 @@ pub fn set_review_at(conn: &Connection, id: &str, date: &str) -> Result<(), ApiE
             "UPDATE decisions SET review_at=?2, updated_at=?3 WHERE id=?1 AND deleted_at IS NULL",
             params![id, date, now],
         )?;
-        super::require_affected(n, "cette décision n'existe plus")?;
+        super::require_affected(n, "this decision no longer exists")?;
         events::record(
             conn,
             "decision.review_scheduled",
@@ -198,7 +198,7 @@ pub fn choose_option(
         )?;
         if !owned {
             return Err(ApiError::invalid(
-                "cette option n'appartient pas à cette décision".to_string(),
+                "this option does not belong to this decision".to_string(),
             ));
         }
         let now = Utc::now().to_rfc3339();
@@ -250,7 +250,7 @@ pub fn add_delta(
     }
     if let Some(p) = &d.payload_priority {
         if !PRIORITIES.contains(&p.as_str()) {
-            return Err(ApiError::invalid(format!("priorité inconnue: {p}")));
+            return Err(ApiError::invalid(format!("unknown priority: {p}")));
         }
     }
     super::with_tx(conn, |conn| {
@@ -427,7 +427,7 @@ pub fn finalize(conn: &Connection, id: &str) -> Result<DecisionFull, ApiError> {
     match chosen {
         None => missing.push("choisir une option"),
         Some(o) if o.premortem.as_deref().unwrap_or("").trim().is_empty() => {
-            missing.push("le pré-mortem de l'option choisie")
+            missing.push("the chosen option's pre-mortem")
         }
         _ => {}
     }
@@ -464,7 +464,7 @@ pub fn finalize(conn: &Connection, id: &str) -> Result<DecisionFull, ApiError> {
             "UPDATE decisions SET status='proposed', updated_at=?2 WHERE id=?1 AND deleted_at IS NULL",
             params![id, now],
         )?;
-        super::require_affected(n, "cette décision n'existe plus")?;
+        super::require_affected(n, "this decision no longer exists")?;
         events::record(conn, "decision.proposed", "decision", id, None)?;
         let _ = crate::db::repo::memory::write_chunk(conn, &mem, "decision", Some(id));
         Ok(())
@@ -496,7 +496,7 @@ pub fn apply_decision(
     let d = get_decision(conn, decision_id)?;
     if d.status != "proposed" {
         return Err(ApiError::invalid(
-            "cette décision n'est pas prête à être intégrée".to_string(),
+            "this decision is not ready to be applied".to_string(),
         ));
     }
     let by_delta: HashMap<&str, &DeltaResolution> = resolutions
@@ -538,7 +538,7 @@ pub fn apply_decision(
             }
             "modified" => {
                 let tgt = target.ok_or_else(|| {
-                    ApiError::incomplete("choisis l'intention à changer".to_string())
+                    ApiError::incomplete("choose the intention to change".to_string())
                 })?;
                 let statement = delta.payload_statement.clone().unwrap_or_default();
                 compass::update_intention(
@@ -554,7 +554,7 @@ pub fn apply_decision(
             }
             "removed" => {
                 let tgt = target.ok_or_else(|| {
-                    ApiError::incomplete("choisis l'intention à arrêter".to_string())
+                    ApiError::incomplete("choose the intention to stop".to_string())
                 })?;
                 compass::archive_intention(&tx, &tgt)?;
             }
