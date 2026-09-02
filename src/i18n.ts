@@ -19,10 +19,19 @@ export function getLang(): Lang {
   return active;
 }
 
-/** Translate an English source string into the active language. */
-export function t(en: string): string {
-  if (active === "fr") return fr[en] ?? en;
-  return en;
+/** BCP-47 locale matching the active UI language, for date/number formatting. */
+export function dateLocale(): string {
+  return active === "fr" ? "fr-FR" : "en-GB";
+}
+
+/** Translate an English source string into the active language. Optional
+ * `{key}` placeholders are filled from `vars` after translation. */
+export function t(en: string, vars?: Record<string, string | number>): string {
+  let s = active === "fr" ? (fr[en] ?? en) : en;
+  if (vars) {
+    for (const [k, v] of Object.entries(vars)) s = s.replaceAll(`{${k}}`, String(v));
+  }
+  return s;
 }
 
 export function registerFr(dictionary: Record<string, string>) {

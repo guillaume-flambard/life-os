@@ -15,12 +15,12 @@ import { Btn, Area } from "../ui/controls";
 import { Card, PageHeader, SectionTitle } from "../ui/primitives";
 import { Async, EmptyState, humanError, useAsync } from "../ui/states";
 import { toaster } from "../ui/toaster";
-import { t } from "../i18n";
+import { t, dateLocale } from "../i18n";
 
 function timeAgo(iso: string): string {
   try {
     const d = new Date(iso);
-    return d.toLocaleDateString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+    return d.toLocaleDateString(dateLocale(), { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
   } catch {
     return "";
   }
@@ -160,7 +160,12 @@ function StepRow({ story, onDone }: { story: OpenStory; onDone: () => void }) {
           </Text>
           {story.decision_title && (
             <Text fontSize="xs" color="fg.subtle" lineClamp="1">
-              {t("for")} \u201c{story.decision_title}\u201d
+              {t("for")} “{story.decision_title}”
+            </Text>
+          )}
+          {story.plan_cue && story.plan_action && (
+            <Text fontSize="xs" color="accent.emphasis" lineClamp="2">
+              {t("When")} {story.plan_cue}, {t("I")} {story.plan_action}.
             </Text>
           )}
         </Stack>

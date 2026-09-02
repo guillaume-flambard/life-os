@@ -413,6 +413,8 @@ export interface OpenStory {
   title: string;
   when_cue: string | null;
   done_when: string | null;
+  plan_cue: string | null;
+  plan_action: string | null;
 }
 
 export interface WoopSuggestion {

@@ -33,6 +33,7 @@ export type Turn =
       placeholder?: string;
       multiline?: boolean;
       cta?: string;
+      initial?: string;
       answered?: boolean;
       onSubmit: (text: string) => void;
     }
@@ -52,6 +53,7 @@ export interface Flow {
     multiline?: boolean;
     cta?: string;
     prompt?: ReactNode;
+    initial?: string;
   }) => Promise<string>;
   widget: (render: (done: (echo?: string) => void) => ReactNode) => Promise<void>;
   echo: (text: string) => void;
@@ -118,6 +120,7 @@ export function useFlow(script: (flow: Flow) => Promise<void>) {
             placeholder: opts?.placeholder,
             multiline: opts?.multiline,
             cta: opts?.cta,
+            initial: opts?.initial,
             onSubmit: (text) => {
               patch(id, (t) => ({ ...(t as any), answered: true }));
               push({ kind: "user", id: uid(), text });

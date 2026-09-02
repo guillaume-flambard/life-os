@@ -64,7 +64,13 @@ impl Ai {
             .timeout(std::time::Duration::from_secs(secs))
             .build()
             .unwrap_or_else(|_| reqwest::Client::new());
-        Self { kind, base, model, embed_model, http }
+        Self {
+            kind,
+            base,
+            model,
+            embed_model,
+            http,
+        }
     }
 
     fn probe_url(&self) -> String {
@@ -134,7 +140,7 @@ impl Ai {
             let content = v["message"]["content"]
                 .as_str()
                 .ok_or("response without content")?;
-            return serde_json::from_str::<Value>(content).map_err(|e| e.to_string());
+            return parse_model_json(content);
         };
 
         // Streamed path: Ollama sends newline-delimited JSON. Each line may carry a
@@ -168,7 +174,7 @@ impl Ai {
             }
         }
         let _ = app.emit("ai-reasoning-end", json!({}));
-        serde_json::from_str::<Value>(content.trim()).map_err(|e| e.to_string())
+        parse_model_json(content.trim())
     }
 
     /// OpenAI-compatible path: one non-streamed request with a json_schema
@@ -206,7 +212,7 @@ impl Ai {
         let content = v["choices"][0]["message"]["content"]
             .as_str()
             .ok_or("response without content")?;
-        serde_json::from_str::<Value>(content.trim()).map_err(|e| e.to_string())
+        parse_model_json(content)
     }
 
     /// Produce a schema-valid delta. Deserializing into `Delta` is the
@@ -235,13 +241,18 @@ impl Ai {
         let raw = self
             .chat_json(
                 "Rephrase what the person says into one testable marker. Answer in JSON with \
-                 'situation' (when…) and 'action' (I…), in their language, no jargon.",
+                 'situation' (the trigger, without repeating the word 'when') and 'action' \
+                 (what they do, without repeating the leading 'I'), in their language, no jargon.",
                 text,
                 schema,
                 app,
             )
             .await?;
-        serde_json::from_value::<Reformulation>(raw).map_err(|e| format!("sortie invalide: {e}"))
+        let mut r = serde_json::from_value::<Reformulation>(raw)
+            .map_err(|e| format!("sortie invalide: {e}"))?;
+        r.situation = strip_leading_word(&r.situation, &["when", "quand"]);
+        r.action = strip_leading_word(&r.action, &["I", "je"]);
+        Ok(r)
     }
 
     /// Widen options. The prompt requires at least three, one of which is a
@@ -255,7 +266,9 @@ impl Ai {
         let raw = self
             .chat_json(
                 "Propose at least three options for this decision, including one of the \
-                 'what if none of these?' kind. Never impose anything, never say 'you should'. \
+                 'what if none of these?' kind. Each option is ONE short sentence (max ~12 \
+                 words), phrased as a path the person could take — not a paragraph of advice. \
+                 Never impose anything, never say 'you should'. \
                  Answer in JSON { options: [...] }, in the language of the person.",
                 context,
                 schema,
@@ -275,9 +288,8 @@ impl Ai {
         app: Option<&AppHandle>,
     ) -> Result<AlignmentNote, String> {
         let schema: Value = serde_json::from_str(ALIGN_SCHEMA).map_err(|e| e.to_string())?;
-        let user = format!(
-            "Option being weighed: {option}\n\nWhat matters to the person:\n{intentions}"
-        );
+        let user =
+            format!("Option being weighed: {option}\n\nWhat matters to the person:\n{intentions}");
         let raw = self
             .chat_json(
                 "Say, in plain words, how this option FITS what matters to the person AND where \
@@ -300,8 +312,10 @@ impl Ai {
         let schema: Value = serde_json::from_str(STORY_SCHEMA).map_err(|e| e.to_string())?;
         let raw = self
             .chat_json(
-                "Propose ONE next small step, self-contained, with its context: title, why, \
-                 when (a concrete trigger), and how we'll know it's done. Answer in JSON \
+                "Propose ONE next small step, self-contained, with its context: a short title \
+                 starting with a plain action verb (not a gerund like 'Reflecting on…'), doable \
+                 in under 15 minutes this week; why; when (a concrete trigger); and how we'll \
+                 know it's done. Answer in JSON \
                  { title, why, when_cue, done_when }, in the person's language.",
                 context,
                 schema,
@@ -404,6 +418,167 @@ impl Ai {
             )
             .await?;
         serde_json::from_value::<WoopSuggestion>(raw).map_err(|e| format!("sortie invalide: {e}"))
+    }
+}
+
+/// Parse a model's JSON answer and repair leaked unicode escapes.
+///
+/// Small local models sometimes double-escape non-ASCII inside their JSON
+/// (`"\\u201c"`), which decodes to the literal text `\u201c` and would surface
+/// raw escapes to the human. Decoding happens here, at the trust boundary,
+/// before anything is validated or persisted (NFR4).
+fn parse_model_json(content: &str) -> Result<Value, String> {
+    let mut v: Value = serde_json::from_str(content.trim()).map_err(|e| e.to_string())?;
+    decode_leaked_escapes(&mut v);
+    Ok(v)
+}
+
+fn decode_leaked_escapes(v: &mut Value) {
+    match v {
+        Value::String(s) => {
+            let d = decode_literal_unicode(s);
+            if d != *s {
+                *s = d;
+            }
+        }
+        Value::Array(xs) => xs.iter_mut().for_each(decode_leaked_escapes),
+        Value::Object(m) => m.values_mut().for_each(decode_leaked_escapes),
+        _ => {}
+    }
+}
+
+fn decode_literal_unicode(s: &str) -> String {
+    if !s.contains("\\u") {
+        return s.to_string();
+    }
+    let b = s.as_bytes();
+    let mut out = String::with_capacity(s.len());
+    let mut i = 0usize;
+    while i < b.len() {
+        if b[i] == b'\\' && i + 6 <= b.len() && b[i + 1] == b'u' {
+            if let Some(cp) = parse_hex4(&b[i + 2..i + 6]) {
+                let mut consumed = 6usize;
+                let mut code = cp;
+                if (0xD800..0xDC00).contains(&cp)
+                    && i + 12 <= b.len()
+                    && b[i + 6] == b'\\'
+                    && b[i + 7] == b'u'
+                {
+                    if let Some(cp2) = parse_hex4(&b[i + 8..i + 12]) {
+                        if (0xDC00..0xE000).contains(&cp2) {
+                            code = 0x10000 + ((cp - 0xD800) << 10) + (cp2 - 0xDC00);
+                            consumed = 12;
+                        }
+                    }
+                }
+                if let Some(c) = char::from_u32(code) {
+                    out.push(c);
+                    i += consumed;
+                    continue;
+                }
+            }
+        }
+        let c = s[i..].chars().next().unwrap();
+        out.push(c);
+        i += c.len_utf8();
+    }
+    out
+}
+
+fn parse_hex4(b: &[u8]) -> Option<u32> {
+    let mut v: u32 = 0;
+    for &x in b {
+        let d = match x {
+            b'0'..=b'9' => x - b'0',
+            b'a'..=b'f' => x - b'a' + 10,
+            b'A'..=b'F' => x - b'A' + 10,
+            _ => return None,
+        };
+        v = v * 16 + d as u32;
+    }
+    Some(v)
+}
+
+/// Drop a leading connective the UI template already supplies ("When {situation}",
+/// "I {action}"). Only strips a whole word followed by a space, so "I'll" stays.
+fn strip_leading_word(text: &str, words: &[&str]) -> String {
+    let t = text.trim_start();
+    for w in words {
+        if t.len() > w.len() && t[..w.len()].eq_ignore_ascii_case(w) {
+            let rest = &t[w.len()..];
+            if rest.starts_with(' ') || rest.starts_with('\u{a0}') {
+                return rest.trim_start().to_string();
+            }
+        }
+    }
+    text.to_string()
+}
+
+#[cfg(test)]
+mod escape_tests {
+    use super::*;
+
+    #[test]
+    fn decodes_leaked_escapes_in_strings() {
+        assert_eq!(
+            decode_literal_unicode("a \\u201cb\\u201d c"),
+            "a \u{201c}b\u{201d} c"
+        );
+    }
+
+    #[test]
+    fn decodes_surrogate_pairs() {
+        assert_eq!(decode_literal_unicode("\\ud83d\\udc4b"), "\u{1F44B}");
+    }
+
+    #[test]
+    fn leaves_real_text_and_bad_escapes_alone() {
+        assert_eq!(decode_literal_unicode("bonjour · ça"), "bonjour · ça");
+        assert_eq!(decode_literal_unicode("a \\uZZZZ b"), "a \\uZZZZ b");
+        assert_eq!(
+            decode_literal_unicode("lone \\ud800 here"),
+            "lone \\ud800 here"
+        );
+    }
+
+    #[test]
+    fn repairs_nested_values() {
+        let mut v = json!({ "q": "\\u201cyes\\u201d", "xs": ["\\u00e9"] });
+        decode_leaked_escapes(&mut v);
+        assert_eq!(v["q"], "\u{201c}yes\u{201d}");
+        assert_eq!(v["xs"][0], "\u{e9}");
+    }
+
+    #[test]
+    fn strips_template_connectives_only_when_duplicated() {
+        assert_eq!(
+            strip_leading_word("when I get home", &["when", "quand"]),
+            "I get home"
+        );
+        assert_eq!(
+            strip_leading_word("When I get home", &["when", "quand"]),
+            "I get home"
+        );
+        assert_eq!(
+            strip_leading_word("quand je rentre", &["when", "quand"]),
+            "je rentre"
+        );
+        assert_eq!(
+            strip_leading_word("I start by calling", &["I", "je"]),
+            "start by calling"
+        );
+        assert_eq!(
+            strip_leading_word("je range mon t\u{e9}l\u{e9}phone", &["I", "je"]),
+            "range mon t\u{e9}l\u{e9}phone"
+        );
+        assert_eq!(
+            strip_leading_word("I'll call him", &["I", "je"]),
+            "I'll call him"
+        );
+        assert_eq!(
+            strip_leading_word("whenever I get home", &["when", "quand"]),
+            "whenever I get home"
+        );
     }
 }
 

@@ -8,8 +8,8 @@ use rusqlite::Connection;
 
 fn priority_label(p: &str) -> &str {
     match p {
-        "must" => "ligne rouge",
-        "should" => "j'aimerais",
+        "must" => "red line",
+        "should" => "I'd like to",
         _ => "bonus",
     }
 }
@@ -30,7 +30,7 @@ pub fn export_markdown(conn: &Connection) -> Result<String, ApiError> {
     ));
 
     // Compass
-    out.push_str("\n## Ta boussole\n");
+    out.push_str("\n## Your compass\n");
     let mut dstmt = conn.prepare(
         "SELECT id, name, status FROM domains WHERE deleted_at IS NULL ORDER BY sort_order, created_at",
     )?;
@@ -69,7 +69,7 @@ pub fn export_markdown(conn: &Connection) -> Result<String, ApiError> {
             .collect::<rusqlite::Result<Vec<_>>>()?;
         for (statement, situation, action, priority, status) in rows {
             let marker = match (situation, action) {
-                (Some(s), Some(a)) => format!("{statement} — quand {s}, je {a}"),
+                (Some(s), Some(a)) => format!("{statement} — when {s}, I {a}"),
                 _ => statement,
             };
             out.push_str(&format!(
@@ -105,7 +105,7 @@ pub fn export_markdown(conn: &Connection) -> Result<String, ApiError> {
     for (id, title, proposal, alignment, status, review_at) in &decisions {
         out.push_str(&format!("\n### {title} ({status})\n"));
         if let Some(p) = proposal {
-            out.push_str(&format!("- Pourquoi : {p}\n"));
+            out.push_str(&format!("- Why: {p}\n"));
         }
         if let Some(a) = alignment {
             out.push_str(&format!("- Against your compass: {a}\n"));
@@ -130,7 +130,7 @@ pub fn export_markdown(conn: &Connection) -> Result<String, ApiError> {
         })? {
             let (t, when) = row?;
             out.push_str(&format!(
-                "- Prochain pas : {t}{}\n",
+                "- Next step: {t}{}\n",
                 when.map(|w| format!(" ({w})")).unwrap_or_default()
             ));
         }
@@ -140,7 +140,7 @@ pub fn export_markdown(conn: &Connection) -> Result<String, ApiError> {
     }
 
     // Reviews
-    out.push_str("\n## Le point\n");
+    out.push_str("\n## The check-in\n");
     let mut rstmt = conn.prepare(
         "SELECT id, created_at FROM reviews WHERE deleted_at IS NULL ORDER BY created_at DESC",
     )?;

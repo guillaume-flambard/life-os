@@ -21,8 +21,15 @@ const DISTRESS: &[&str] = &[
     "me faire du mal",
     "disparaître pour toujours",
     "personne ne me regretterait",
+    "envie de disparaître",
+    "fatigué de vivre",
+    "fatiguée de vivre",
+    "ne plus vouloir vivre",
+    "mieux vaut que je parte",
+    "en finir avec tout",
     // English
     "ending my life",
+    "ending it all",
     "take my own life",
     "want to die",
     "kill myself",
@@ -30,7 +37,14 @@ const DISTRESS: &[&str] = &[
     "end it all",
     "hurt myself",
     "no reason to live",
+    "no point in living",
+    "no point in going on",
+    "can't go on",
+    "cannot go on",
     "better off dead",
+    "better off without me",
+    "tired of living",
+    "want to disappear",
     "suicidal",
 ];
 
@@ -129,7 +143,12 @@ fn high_stakes(lower: &str) -> Option<String> {
 /// Screen text locally. Distress takes precedence; when detected, resources are
 /// attached and the caller must leave the coaching flow (and never run AI on it).
 pub fn screen(text: &str) -> ScreenResult {
-    let lower = text.to_lowercase();
+    // Lowercase + fold typographic apostrophes so "can't" and "can’t" both match.
+    let lower: String = text
+        .to_lowercase()
+        .chars()
+        .map(|c| if c == '\u{2019}' { '\'' } else { c })
+        .collect();
     let distress = DISTRESS.iter().any(|p| lower.contains(p));
     ScreenResult {
         distress,
@@ -155,6 +174,18 @@ mod tests {
         let r = screen("some days I think about ending my life");
         assert!(r.distress);
         assert!(!r.resources.is_empty());
+    }
+
+    #[test]
+    fn detects_common_miss_variants() {
+        assert!(screen("I can't go on like this. I keep thinking about ending it all.").distress);
+        assert!(screen("there is no point in going on").distress);
+        assert!(screen("je veux en finir avec tout").distress);
+    }
+
+    #[test]
+    fn folds_typographic_apostrophes() {
+        assert!(screen("I can\u{2019}t go on anymore").distress);
     }
 
     #[test]

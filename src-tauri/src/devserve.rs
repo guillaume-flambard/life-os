@@ -65,12 +65,12 @@ pub fn run() {
         std::process::exit(1);
     });
     let db: Db = Arc::new(Mutex::new(conn));
-    let ai = Arc::new(Ollama::from_env());
+    let ai = Arc::new(Ai::from_env());
     let addr = std::env::var("LIFEOS_DEV_PORT").unwrap_or_else(|_| "1421".into());
-    println!("devserve: commands on http://127.0.0.1:{addr} (db: {db_path})");
 
     tokio::runtime::Runtime::new().unwrap().block_on(async move {
         let listener = tokio::net::TcpListener::bind(("127.0.0.1", addr.parse().unwrap())).await.unwrap();
+        println!("devserve: commands on http://127.0.0.1:{addr} (db: {db_path})");
         loop {
             let (stream, _) = listener.accept().await.unwrap();
             let db = db.clone();
@@ -343,7 +343,7 @@ async fn dispatch(db: &Db, ai: &Ai, body: Value) -> Out {
             ok(sync::import_merge(&conn(), &snapshot)?)
         }
         "erase_all" => {
-            if s(&a, "confirm") != "EFFACER" {
+            if s(&a, "confirm") != "ERASE" {
                 return Err(ApiError::invalid("missing confirmation").into());
             }
             ok(admin::erase_all(&conn())?)

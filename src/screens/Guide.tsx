@@ -16,6 +16,7 @@ import {
   decisionSetDistance,
   decisionSetPremortem,
   decisionSetWhy,
+  generateWoop,
   listDecisions,
   listDomains,
   listIntentions,
@@ -26,6 +27,7 @@ import {
   safetyScreen,
   setOnboarded,
   setStoryStatus,
+  storyAddIfThen,
   type DecisionFull,
   type OpenStory,
   type Reformulation,
@@ -301,7 +303,12 @@ async function pickStep(flow: Flow, stories: OpenStory[]): Promise<boolean> {
           <Text fontWeight="semibold">{s.title}</Text>
           {s.decision_title && (
             <Text fontSize="sm" color="fg.muted">
-              {t("for")} \u201c{s.decision_title}\u201d
+              {t("for")} “{s.decision_title}”
+            </Text>
+          )}
+          {s.plan_cue && s.plan_action && (
+            <Text fontSize="sm" color="accent.emphasis">
+              {t("When")} {s.plan_cue}, {t("I")} {s.plan_action}.
             </Text>
           )}
         </Stack>
@@ -388,7 +395,7 @@ async function branchCompass(flow: Flow, reveal: () => Promise<void>) {
     const raw = await flow.input({
       prompt: (
         <>
-          {t("In one sentence: what does")} \u201c{thing}\u201d {t("mean, concretely, for you?")}
+          {t("In one sentence: what does")} “{thing}” {t("mean, concretely, for you?")}
         </>
       ),
       placeholder: t("e.g. when I get home in the evening, I put my phone away for an hour"),
@@ -627,14 +634,77 @@ async function branchDecision(flow: Flow, reveal: () => Promise<void>) {
     });
   }
 
+  let storyId: string | null = null;
   try {
-    await decisionAddStory(decisionId, stepTitle, stepBox.value?.why ?? null, null, null);
+    storyId = (await decisionAddStory(decisionId, stepTitle, stepBox.value?.why ?? null, null, null)).id;
   } catch (e) {
     await flow.say(
       `${t("I couldn't save your step")}: ${humanError(e)}. ${t("We'll note it from your notebook.")}`,
     );
     return;
   }
+
+  // 7) Pre-wire the step with one "when …, I …" anchor. The assist pre-fills;
+  // the manual path always works (next-step spec).
+  if (storyId) {
+    const anchor = await flow.ask(
+      [
+        { label: t("Yes, anchor it"), value: "yes", tone: "accent" },
+        { label: t("Later"), value: "no" },
+      ],
+      {
+        prompt: t(
+          "Want to anchor it in real life? One moment that will bring it back to mind — 'when …, I …'.",
+        ),
+      },
+    );
+    if (anchor === "yes") {
+      let cue = "";
+      let action = "";
+      const assist = await flow.ask(
+        [
+          { label: t("Suggest one for me"), value: "suggest", tone: "accent" },
+          { label: t("I'll write it myself"), value: "mine" },
+        ],
+        { prompt: t("How would you like to find it?") },
+      );
+      if (assist === "suggest") {
+        try {
+          const w = await generateWoop(`${title} — ${stepTitle}`);
+          cue = w.cue;
+          action = w.action;
+        } catch {
+          /* the assist is optional; writing by hand always works */
+        }
+      }
+      cue = await flow.input({
+        prompt: t("When …? (the moment that will remind you)"),
+        placeholder: t("e.g. when I pour my morning coffee"),
+        initial: cue || undefined,
+        cta: t("Next"),
+      });
+      action = await flow.input({
+        prompt: t("Then what, exactly? (one tiny action)"),
+        placeholder: t("e.g. I open the school list for ten minutes"),
+        initial: action || undefined,
+        cta: t("Anchor it"),
+      });
+      if (cue.trim() && action.trim()) {
+        try {
+          await storyAddIfThen(storyId, decisionId, cue.trim(), action.trim());
+          await flow.say(
+            <>
+              {t("Anchored:")} <b>{t("When")} {cue.trim()}, {t("I")} {action.trim()}</b>.{" "}
+              {t("It'll wait for the moment.")}
+            </>,
+          );
+        } catch (e) {
+          await flow.say(`${t("I couldn't anchor it")}: ${humanError(e)}. ${t("The step is kept, though.")}`);
+        }
+      }
+    }
+  }
+
   try {
     await decisionFinalize(decisionId);
   } catch (e) {

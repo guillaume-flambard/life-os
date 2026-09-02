@@ -432,9 +432,7 @@ pub async fn memory_backfill(db: State<'_, Db>, ai: State<'_, Ai>) -> Result<i64
             }
             Err(e) => {
                 if n == 0 {
-                    return Err(ApiError::ai(format!(
-                        "embedding model unavailable: {e}"
-                    )));
+                    return Err(ApiError::ai(format!("embedding model unavailable: {e}")));
                 }
                 break;
             }
@@ -646,7 +644,7 @@ pub fn sync_import(
 /// Erase everything. Guarded by an explicit confirmation token from the UI.
 #[tauri::command]
 pub fn erase_all(db: State<'_, Db>, confirm: String) -> Result<(), ApiError> {
-    if confirm != "EFFACER" {
+    if confirm != "ERASE" {
         return Err(ApiError::invalid("missing confirmation".to_string()));
     }
     let conn = db.0.lock().unwrap();

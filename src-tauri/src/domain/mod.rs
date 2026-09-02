@@ -306,6 +306,8 @@ pub struct OpenStory {
     pub title: String,
     pub when_cue: Option<String>,
     pub done_when: Option<String>,
+    pub plan_cue: Option<String>,
+    pub plan_action: Option<String>,
 }
 
 /// Result of merging an imported snapshot.

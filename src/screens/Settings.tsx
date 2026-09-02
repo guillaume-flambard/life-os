@@ -6,7 +6,9 @@ import {
   dbHealth,
   eraseAll,
   exportData,
+  memoryBackfill,
   syncExport,
+  syncImport,
   type Health,
 } from "../lib/ipc";
 import { useColorMode } from "../provider";
@@ -169,6 +171,10 @@ function ExportCard() {
 function SyncCard() {
   const [pass, setPass] = useState("");
   const [busy, setBusy] = useState(false);
+  const [importPath, setImportPath] = useState("");
+  const [importPass, setImportPass] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const run = async () => {
     if (pass.length < 6) return;
     setBusy(true);
@@ -179,6 +185,42 @@ function SyncCard() {
       toaster.create({ type: "error", title: t("Oops"), description: humanError(e) });
     } finally {
       setBusy(false);
+    }
+  };
+  const runImport = async () => {
+    if (!importPath.trim() || importPass.length < 6) return;
+    setImporting(true);
+    try {
+      const s = await syncImport(importPath.trim(), importPass);
+      toaster.create({
+        type: "success",
+        title: t("Snapshot merged"),
+        description: t("{n} added, {m} updated, {k} already up to date.", {
+          n: s.inserted,
+          m: s.updated,
+          k: s.skipped,
+        }),
+      });
+      setImportPath("");
+      setImportPass("");
+    } catch (e) {
+      toaster.create({ type: "error", title: t("Oops"), description: humanError(e) });
+    } finally {
+      setImporting(false);
+    }
+  };
+  const runRefresh = async () => {
+    setRefreshing(true);
+    try {
+      const n = await memoryBackfill();
+      toaster.create({
+        type: "success",
+        title: n > 0 ? t("Memory refreshed ({n} items).", { n }) : t("Everything is already up to date."),
+      });
+    } catch (e) {
+      toaster.create({ type: "error", title: t("Oops"), description: humanError(e) });
+    } finally {
+      setRefreshing(false);
     }
   };
   return (
@@ -201,6 +243,36 @@ function SyncCard() {
           />
           <Btn sm subtle onClick={run} loading={busy} disabled={pass.length < 6}>
             {t("Create")}
+          </Btn>
+        </HStack>
+        <Stack gap="1">
+          <Text fontSize="sm" fontWeight="medium">{t("Restore a snapshot")}</Text>
+          <Text fontSize="xs" color="fg.muted">
+            {t("Point to a snapshot file from another device. Newer edits win; nothing is lost.")}
+          </Text>
+          <Field
+            placeholder={t("Path to the snapshot file (.age)")}
+            value={importPath}
+            onChange={(e) => setImportPath(e.target.value)}
+          />
+          <HStack>
+            <Field
+              type="password"
+              placeholder={t("Passphrase")}
+              value={importPass}
+              onChange={(e) => setImportPass(e.target.value)}
+            />
+            <Btn sm subtle onClick={runImport} loading={importing} disabled={!importPath.trim() || importPass.length < 6}>
+              {t("Restore")}
+            </Btn>
+          </HStack>
+        </Stack>
+        <HStack justify="space-between">
+          <Text fontSize="xs" color="fg.muted">
+            {t("After restoring on a new device, refresh the memory so search finds everything.")}
+          </Text>
+          <Btn sm subtle onClick={runRefresh} loading={refreshing}>
+            {t("Refresh memory")}
           </Btn>
         </HStack>
       </Stack>

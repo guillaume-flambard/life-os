@@ -13,7 +13,13 @@ const STATUSES: [&str; 3] = ["open", "done", "dropped"];
 /// Every open next step across all decisions, newest first, with its decision title.
 pub fn list_open_stories(conn: &Connection) -> Result<Vec<OpenStory>, ApiError> {
     let mut stmt = conn.prepare(
-        "SELECT s.id, s.decision_id, d.title, s.title, s.when_cue, s.done_when
+        "SELECT s.id, s.decision_id, d.title, s.title, s.when_cue, s.done_when,
+                (SELECT p.cue FROM if_then_plans p
+                  WHERE p.story_id = s.id AND p.deleted_at IS NULL
+                  ORDER BY p.created_at DESC LIMIT 1),
+                (SELECT p.action FROM if_then_plans p
+                  WHERE p.story_id = s.id AND p.deleted_at IS NULL
+                  ORDER BY p.created_at DESC LIMIT 1)
          FROM stories s
          LEFT JOIN decisions d ON d.id = s.decision_id
          WHERE s.status = 'open' AND s.deleted_at IS NULL
@@ -28,6 +34,8 @@ pub fn list_open_stories(conn: &Connection) -> Result<Vec<OpenStory>, ApiError> 
                 title: r.get(3)?,
                 when_cue: r.get(4)?,
                 done_when: r.get(5)?,
+                plan_cue: r.get(6)?,
+                plan_action: r.get(7)?,
             })
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;

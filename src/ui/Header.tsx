@@ -96,7 +96,7 @@ export function Header({ ctx, revealed }: { ctx: Ctx; revealed: boolean }) {
                         <Box as="span" mr="2">
                           {s.icon}
                         </Box>
-                        {s.label}
+                        {t(s.label)}
                       </Menu.Item>
                     ))}
                     <Menu.Separator />

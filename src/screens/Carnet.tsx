@@ -13,7 +13,7 @@ import { Card, PageHeader, Pill } from "../ui/primitives";
 import { Async, EmptyState, humanError, useAsync } from "../ui/states";
 import { navigate } from "../ui/router";
 import { IconCheck, IconPlus } from "../ui/icons";
-import { t } from "../i18n";
+import { t, dateLocale } from "../i18n";
 
 const STATUS: Record<string, { label: () => string; active: boolean }> = {
   draft: { label: () => t("draft"), active: false },
@@ -25,7 +25,7 @@ const STATUS: Record<string, { label: () => string; active: boolean }> = {
 
 function when(iso: string): string {
   try {
-    return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "long" });
+    return new Date(iso).toLocaleDateString(dateLocale(), { day: "numeric", month: "long" });
   } catch {
     return "";
   }

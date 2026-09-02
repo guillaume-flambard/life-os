@@ -45,16 +45,18 @@ function Chips({
 function Composer({
   placeholder,
   multiline,
+  initial,
   answered,
   onSubmit,
 }: {
   placeholder?: string;
   multiline?: boolean;
   cta?: string;
+  initial?: string;
   answered?: boolean;
   onSubmit: (t: string) => void;
 }) {
-  const [value, setValue] = useState("");
+  const [value, setValue] = useState(initial ?? "");
   const ref = useRef<HTMLTextAreaElement & HTMLInputElement>(null);
   useEffect(() => {
     if (!answered) ref.current?.focus();
@@ -136,6 +138,7 @@ export function Conversation({ turns }: { turns: Turn[] }) {
                 placeholder={t.placeholder}
                 multiline={t.multiline}
                 cta={t.cta}
+                initial={t.initial}
                 answered={t.answered}
                 onSubmit={t.onSubmit}
               />
