@@ -33,12 +33,13 @@ The engine's rigor stays invisible. Two layers run on the same engine:
   compass, decision-as-change-proposal) is complete, and the human front-end was
   rebuilt as a guided conversation (`redesign-conversational-ui`). The app now
   covers a full first release: compass, daily, memory, review, safety, sync,
-  onboarding, guided-decision, next-step, and release-prep.
-- **Current frontier = verification + release, not new features.** Open work:
-  an end-to-end run against a live Ollama model, guided-decision parity
-  (pre-mortem, explicit "none of these", editing), and applying/archiving
-  `harden-core` (security + data-integrity + honest-UI pass). Do not add feature
-  scope beyond this without a decision.
+  onboarding, guided-decision, next-step, and release-prep. v0.2.1 shipped that
+  with the `harden-core` security, data-integrity and honest-UI pass.
+- **Current frontier = dogfooding, not new features.** The backend and AI paths
+  are verified live (ignored tests hitting a real model); the OpenSpec backbone
+  (`specs/`, 13 capabilities) is reconciled and every change is archived. The
+  only open item is a manual click-through of the app on a real desktop build.
+  Do not add feature scope without a decision.
 
 ## Stack
 

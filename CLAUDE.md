@@ -13,12 +13,13 @@ ressources) as the source of truth before changing anything.
   distinct framings (explore → frame → strategize → shard → review) one at a time.
 - **Scope has moved past the original MVP.** Epics 1–3 shipped, then
   `redesign-conversational-ui` rebuilt the human front-end as a guided
-  conversation and the app grew into a full first release (compass, daily,
+  conversation, and the app grew into a full first release (compass, daily,
   memory, review, safety, sync, onboarding, guided-decision, next-step,
-  release-prep). The current frontier is **verification + release, not new
-  features**: an end-to-end run against a live Ollama model, guided-decision
-  parity, and applying/archiving `harden-core`. Do not add feature scope beyond
-  that without a decision.
+  release-prep). v0.2.1 shipped that with the `harden-core` security pass;
+  the OpenSpec backbone (`specs/`, 13 capabilities) is reconciled.
+- **Current frontier = dogfooding, not new features.** The only open item is
+  a manual click-through of the app on a real desktop build (the backend and
+  AI paths are verified live). Do not add feature scope without a decision.
 
 ## Non-negotiable constraints
 
