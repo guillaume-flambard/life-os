@@ -514,7 +514,7 @@ mod tests {
     #[tokio::test]
     async fn contradiction_is_silent_without_related_history() {
         // No related history → no model call, no question (FR10).
-        let ai = crate::ai::Ollama::from_env();
+        let ai = crate::ai::Ai::from_env();
         assert!(ai
             .contradiction_question("changer de job", &[])
             .await
@@ -942,7 +942,7 @@ mod tests {
         // exact sequence `branchDecision` drives through the commands: open,
         // AI-suggested options + explicit null, choose, pre-mortem, 10/10/10,
         // why, compass alignment (AI), confidence, AI-suggested step, finalize.
-        use crate::ai::Ollama;
+        use crate::ai::Ai;
         use repo::{compass, decision};
         register_vec();
         let path = std::env::temp_dir().join(format!("life-os-e2e-{}.db", std::process::id()));
@@ -962,7 +962,7 @@ mod tests {
         )
         .unwrap();
 
-        let ai = Ollama::from_env();
+        let ai = Ai::from_env();
         assert!(ai.health().await.ok, "Ollama injoignable");
 
         let d = decision::open_decision(&conn, "comment tenir le sport sur une année ?").unwrap();

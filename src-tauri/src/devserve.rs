@@ -5,7 +5,7 @@
 //! `cargo run --bin devserve` and set `LIFEOS_DEV_DB` to a scratch database.
 //! AI commands run without the streaming handle (no live reasoning timeline).
 
-use crate::ai::Ollama;
+use crate::ai::Ai;
 use crate::db::{self, repo};
 use crate::db::repo::{admin, capture, compass, decision, memory, profile, review, story};
 use crate::domain::{ApiError, DeltaInput, DeltaResolution, Health};
@@ -85,7 +85,7 @@ pub fn run() {
 async fn serve_conn(
     mut stream: tokio::net::TcpStream,
     db: Db,
-    ai: Arc<Ollama>,
+    ai: Arc<Ai>,
 ) -> std::io::Result<()> {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -160,7 +160,7 @@ async fn serve_conn(
     stream.flush().await
 }
 
-async fn dispatch(db: &Db, ai: &Ollama, body: Value) -> Out {
+async fn dispatch(db: &Db, ai: &Ai, body: Value) -> Out {
     let cmd = body.get("cmd").and_then(|v| v.as_str()).unwrap_or_default().to_string();
     let a = body.get("args").cloned().unwrap_or_else(|| json!({}));
     let conn = || db.lock().unwrap();

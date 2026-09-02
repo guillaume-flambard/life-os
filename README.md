@@ -81,8 +81,19 @@ ollama pull qwen3:8b            # conversation (or gemma3:12b on 24-32 GB RAM)
 ollama pull embeddinggemma      # embeddings for semantic recall (768-dim)
 ```
 
-Override the chat model with `LIFEOS_MODEL` and the endpoint with `LIFEOS_OLLAMA_URL`
-(e.g. to reach an Ollama on another machine over Tailscale).
+Override the chat model with `LIFEOS_MODEL` and the endpoint with `LIFEOS_AI_URL`
+(e.g. to reach an Ollama on another machine over Tailscale). Any
+**OpenAI-compatible local server** also works — LM Studio, llama.cpp `server`,
+or Ollama's own `/v1`:
+
+```bash
+LIFEOS_AI_BACKEND=openai LIFEOS_AI_URL=http://127.0.0.1:1234/v1 LIFEOS_MODEL=your-model npm run tauri dev
+```
+
+On an OpenAI-compatible backend, structured assists use `response_format`
+json_schema (still validated before anything is stored) and the live
+reasoning timeline is Ollama-only. Embeddings default to `embeddinggemma`
+and can be overridden with `LIFEOS_EMBED_MODEL`.
 
 ## Run it
 

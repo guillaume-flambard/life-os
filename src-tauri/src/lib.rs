@@ -28,7 +28,7 @@ pub fn run() {
             let conn =
                 db::open(&db_path).map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
             app.manage(db::Db(Mutex::new(conn)));
-            app.manage(ai::Ollama::from_env());
+            app.manage(ai::Ai::from_env());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

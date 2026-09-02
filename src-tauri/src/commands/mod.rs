@@ -1,7 +1,7 @@
 //! Tauri commands: the only surface the front can call. DB commands are sync and
-//! lock the connection; AI commands are async and hit localhost Ollama only.
+//! lock the connection; AI commands are async and hit the local model server only.
 
-use crate::ai::Ollama;
+use crate::ai::Ai;
 use crate::db::repo::{admin, capture, compass, decision, memory, profile, review, story};
 use crate::db::{repo, Db};
 use crate::domain::{
@@ -24,7 +24,7 @@ pub fn db_health(db: State<'_, Db>) -> Health {
 }
 
 #[tauri::command]
-pub async fn ai_health(ai: State<'_, Ollama>) -> Result<Health, String> {
+pub async fn ai_health(ai: State<'_, Ai>) -> Result<Health, String> {
     Ok(ai.health().await)
 }
 
@@ -59,7 +59,7 @@ pub fn list_decisions(db: State<'_, Db>) -> Result<Vec<Decision>, String> {
 }
 
 #[tauri::command]
-pub async fn generate_delta(ai: State<'_, Ollama>, situation: String) -> Result<Delta, String> {
+pub async fn generate_delta(ai: State<'_, Ai>, situation: String) -> Result<Delta, String> {
     ai.generate_delta(&situation).await
 }
 
@@ -154,7 +154,7 @@ pub fn archive_intention(db: State<'_, Db>, id: String) -> Result<(), ApiError> 
 #[tauri::command]
 pub async fn reformulate_intention(
     app: AppHandle,
-    ai: State<'_, Ollama>,
+    ai: State<'_, Ai>,
     text: String,
 ) -> Result<Reformulation, ApiError> {
     ai.reformulate_intention(&text, Some(&app))
@@ -297,7 +297,7 @@ pub fn decision_finalize(db: State<'_, Db>, id: String) -> Result<DecisionFull, 
 #[tauri::command]
 pub async fn decision_suggest_options(
     app: AppHandle,
-    ai: State<'_, Ollama>,
+    ai: State<'_, Ai>,
     context: String,
 ) -> Result<OptionSuggestions, ApiError> {
     ai.suggest_options(&context, Some(&app))
@@ -308,7 +308,7 @@ pub async fn decision_suggest_options(
 #[tauri::command]
 pub async fn decision_align_values(
     app: AppHandle,
-    ai: State<'_, Ollama>,
+    ai: State<'_, Ai>,
     option: String,
     intentions: String,
 ) -> Result<AlignmentNote, ApiError> {
@@ -320,7 +320,7 @@ pub async fn decision_align_values(
 #[tauri::command]
 pub async fn decision_generate_story(
     app: AppHandle,
-    ai: State<'_, Ollama>,
+    ai: State<'_, Ai>,
     context: String,
 ) -> Result<StorySuggestion, ApiError> {
     ai.generate_story(&context, Some(&app))
@@ -396,7 +396,7 @@ pub fn apply_decision(
 #[tauri::command]
 pub async fn memory_recall(
     db: State<'_, Db>,
-    ai: State<'_, Ollama>,
+    ai: State<'_, Ai>,
     query: String,
     k: Option<i64>,
 ) -> Result<Vec<MemoryHit>, ApiError> {
@@ -417,7 +417,7 @@ pub async fn memory_recall(
 }
 
 #[tauri::command]
-pub async fn memory_backfill(db: State<'_, Db>, ai: State<'_, Ollama>) -> Result<i64, ApiError> {
+pub async fn memory_backfill(db: State<'_, Db>, ai: State<'_, Ai>) -> Result<i64, ApiError> {
     let pending = {
         let conn = db.0.lock().unwrap();
         memory::chunks_without_vec(&conn).map_err(ApiError::db)?
@@ -446,7 +446,7 @@ pub async fn memory_backfill(db: State<'_, Db>, ai: State<'_, Ollama>) -> Result
 #[tauri::command]
 pub async fn contradiction_check(
     db: State<'_, Db>,
-    ai: State<'_, Ollama>,
+    ai: State<'_, Ai>,
     text: String,
 ) -> Result<Option<String>, ApiError> {
     let kw = {
@@ -561,7 +561,7 @@ pub fn story_if_then(db: State<'_, Db>, story_id: String) -> Result<Vec<IfThenPl
 #[tauri::command]
 pub async fn generate_woop(
     app: AppHandle,
-    ai: State<'_, Ollama>,
+    ai: State<'_, Ai>,
     context: String,
 ) -> Result<WoopSuggestion, ApiError> {
     ai.generate_woop(&context, Some(&app))

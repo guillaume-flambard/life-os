@@ -17,17 +17,41 @@ const STORY_SCHEMA: &str = include_str!("schemas/story.json");
 const QUESTION_SCHEMA: &str = include_str!("schemas/question.json");
 const WOOP_SCHEMA: &str = include_str!("schemas/woop.json");
 
-pub struct Ollama {
+/// Which wire protocol the local server speaks.
+#[derive(Clone, Copy, PartialEq)]
+enum Kind {
+    /// Ollama's native API (/api/chat, /api/embed) — the default; the only
+    /// backend that streams the model's reasoning for the live timeline.
+    Ollama,
+    /// Any OpenAI-compatible server (LM Studio, llama.cpp server, Ollama's /v1…).
+    /// Base URL includes /v1. Non-streaming; structured output via
+    /// response_format json_schema, still validated by typed deserialization.
+    OpenAi,
+}
+
+pub struct Ai {
+    kind: Kind,
     base: String,
     model: String,
+    embed_model: String,
     http: reqwest::Client,
 }
 
-impl Ollama {
+use Kind::{Ollama, OpenAi};
+
+impl Ai {
     pub fn from_env() -> Self {
-        let base = std::env::var("LIFEOS_OLLAMA_URL")
-            .unwrap_or_else(|_| "http://127.0.0.1:11434".to_string());
+        let kind = match std::env::var("LIFEOS_AI_BACKEND").as_deref() {
+            Ok("openai") => OpenAi,
+            _ => Ollama,
+        };
+        let base = std::env::var("LIFEOS_AI_URL").unwrap_or_else(|_| match kind {
+            Ollama => "http://127.0.0.1:11434".to_string(),
+            OpenAi => "http://127.0.0.1:11434/v1".to_string(),
+        });
         let model = std::env::var("LIFEOS_MODEL").unwrap_or_else(|_| "qwen3:8b".to_string());
+        let embed_model =
+            std::env::var("LIFEOS_EMBED_MODEL").unwrap_or_else(|_| "embeddinggemma".to_string());
         // Bounded calls: a wedged or absent local server must fail, not hang the
         // command forever. 300 s is generous for a local model yet finite;
         // overridable for slow hardware via LIFEOS_HTTP_TIMEOUT_SECS.
@@ -40,20 +64,25 @@ impl Ollama {
             .timeout(std::time::Duration::from_secs(secs))
             .build()
             .unwrap_or_else(|_| reqwest::Client::new());
-        Self { base, model, http }
+        Self { kind, base, model, embed_model, http }
+    }
+
+    fn probe_url(&self) -> String {
+        match self.kind {
+            Ollama => format!("{}/api/tags", self.base),
+            OpenAi => format!("{}/models", self.base),
+        }
     }
 
     /// Probe the local server. Never contacts any external host.
     pub async fn health(&self) -> Health {
-        match self
-            .http
-            .get(format!("{}/api/tags", self.base))
-            .send()
-            .await
-        {
-            Ok(r) if r.status().is_success() => Health::ok(format!("Ollama ready ({})", self.model)),
-            Ok(r) => Health::ko(format!("Ollama responded {}", r.status())),
-            Err(_) => Health::ko("Ollama unreachable (run `ollama serve`)".to_string()),
+        match self.http.get(self.probe_url()).send().await {
+            Ok(r) if r.status().is_success() => Health::ok(format!("AI ready ({})", self.model)),
+            Ok(r) => Health::ko(format!("AI server responded {}", r.status())),
+            Err(_) => Health::ko(match self.kind {
+                Ollama => "Ollama unreachable (run `ollama serve`)".to_string(),
+                OpenAi => format!("AI server unreachable at {}", self.base),
+            }),
         }
     }
 
@@ -71,6 +100,9 @@ impl Ollama {
         schema: Value,
         app: Option<&AppHandle>,
     ) -> Result<Value, String> {
+        if self.kind == OpenAi {
+            return self.chat_json_openai(system, user, schema).await;
+        }
         let streaming = app.is_some();
         let body = json!({
             "model": self.model,
@@ -136,6 +168,44 @@ impl Ollama {
             }
         }
         let _ = app.emit("ai-reasoning-end", json!({}));
+        serde_json::from_str::<Value>(content.trim()).map_err(|e| e.to_string())
+    }
+
+    /// OpenAI-compatible path: one non-streamed request with a json_schema
+    /// response_format. No reasoning stream (the UI folds to its "thinking"
+    /// placeholder); the answer is still validated by typed deserialization.
+    async fn chat_json_openai(
+        &self,
+        system: &str,
+        user: &str,
+        schema: Value,
+    ) -> Result<Value, String> {
+        let body = json!({
+            "model": self.model,
+            "stream": false,
+            "messages": [
+                { "role": "system", "content": system },
+                { "role": "user", "content": user }
+            ],
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": { "name": "reply", "schema": schema, "strict": true }
+            }
+        });
+        let resp = self
+            .http
+            .post(format!("{}/chat/completions", self.base))
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+        if !resp.status().is_success() {
+            return Err(format!("AI server responded {}", resp.status()));
+        }
+        let v: Value = resp.json().await.map_err(|e| e.to_string())?;
+        let content = v["choices"][0]["message"]["content"]
+            .as_str()
+            .ok_or("response without content")?;
         serde_json::from_str::<Value>(content.trim()).map_err(|e| e.to_string())
     }
 
@@ -241,28 +311,44 @@ impl Ollama {
         serde_json::from_value::<StorySuggestion>(raw).map_err(|e| format!("sortie invalide: {e}"))
     }
 
-    /// Embed text locally (EmbeddingGemma, 768-dim). Used for semantic recall.
+    /// Embed text locally for semantic recall (EmbeddingGemma on Ollama by
+    /// default; /v1/embeddings on an OpenAI-compatible backend).
     pub async fn embed(&self, text: &str) -> Result<Vec<f32>, String> {
-        let model =
-            std::env::var("LIFEOS_EMBED_MODEL").unwrap_or_else(|_| "embeddinggemma".to_string());
-        let body = json!({ "model": model, "input": text });
+        let (url, body) = match self.kind {
+            Ollama => (
+                format!("{}/api/embed", self.base),
+                json!({ "model": self.embed_model, "input": text }),
+            ),
+            OpenAi => (
+                format!("{}/embeddings", self.base),
+                json!({ "model": self.embed_model, "input": text }),
+            ),
+        };
         let resp = self
             .http
-            .post(format!("{}/api/embed", self.base))
+            .post(url)
             .json(&body)
             .send()
             .await
             .map_err(|e| e.to_string())?;
         if !resp.status().is_success() {
-            return Err(format!("Ollama responded {}", resp.status()));
+            return Err(format!("AI server responded {}", resp.status()));
         }
         let v: Value = resp.json().await.map_err(|e| e.to_string())?;
-        let emb = v["embeddings"][0]
-            .as_array()
-            .ok_or("empty embedding response")?
-            .iter()
-            .map(|x| x.as_f64().unwrap_or(0.0) as f32)
-            .collect::<Vec<f32>>();
+        let emb = match self.kind {
+            Ollama => v["embeddings"][0]
+                .as_array()
+                .ok_or("empty embedding response")?
+                .iter()
+                .map(|x| x.as_f64().unwrap_or(0.0) as f32)
+                .collect::<Vec<f32>>(),
+            OpenAi => v["data"][0]["embedding"]
+                .as_array()
+                .ok_or("empty embedding response")?
+                .iter()
+                .map(|x| x.as_f64().unwrap_or(0.0) as f32)
+                .collect::<Vec<f32>>(),
+        };
         if emb.is_empty() {
             return Err("empty embedding".to_string());
         }
@@ -331,10 +417,10 @@ impl Ollama {
 /// result. A schema or timeout regression fails here, not silently in the UI.
 #[cfg(test)]
 mod live_tests {
-    use super::Ollama;
+    use super::Ai;
 
-    fn ai() -> Ollama {
-        Ollama::from_env()
+    fn ai() -> Ai {
+        Ai::from_env()
     }
 
     #[tokio::test]
