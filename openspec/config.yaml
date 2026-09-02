@@ -1,0 +1,9 @@
+schema: spec-driven
+
+context: |
+  Life OS — a local-first, privacy-first life coach. Tauri v2 + TypeScript front;
+  SQLCipher + FTS5 + sqlite-vec store; local AI via Ollama. Two layers on one
+  engine: a warm human-mode conversation (default) and an optional expert mode
+  that reveals the mechanics. In human mode, engine vocabulary never appears in
+  the UI. Anti-over-systematization caps the system; safety guardrails are
+  non-negotiable. Read openspec/project.md and docs/ before proposing changes.
