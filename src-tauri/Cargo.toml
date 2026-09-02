@@ -7,6 +7,16 @@ license = "AGPL-3.0-or-later"
 edition = "2021"
 rust-version = "1.77"
 
+[features]
+# by default Tauri runs in production mode; custom-protocol used for release
+custom-protocol = ["tauri/custom-protocol"]
+devserve = []
+
+[[bin]]
+name = "devserve"
+path = "src/bin/devserve.rs"
+required-features = ["devserve"]
+
 [lib]
 name = "life_os_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
@@ -35,6 +45,3 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 futures-util = "0.3"
 thiserror = "1"
 
-[features]
-# by default Tauri runs in production mode; custom-protocol used for release
-custom-protocol = ["tauri/custom-protocol"]

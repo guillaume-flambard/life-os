@@ -1,4 +1,30 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke as tauriInvoke } from "@tauri-apps/api/core";
+
+// Outside the Tauri shell (plain browser on the vite dev server), route
+// commands to the devserve bridge (cargo run --bin devserve) so the real
+// engine — encrypted DB + local model — is reachable for browser E2E runs.
+// Top-level arg keys go camelCase → snake_case, like Tauri's own mapping.
+const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+const invoke = (inTauri
+  ? tauriInvoke
+  : (<T>(cmd: string, args?: Record<string, unknown>): Promise<T> =>
+      fetch("http://127.0.0.1:1421/invoke", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          cmd,
+          args: Object.fromEntries(
+            Object.entries(args ?? {}).map(([k, v]) => [
+              k.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`),
+              v,
+            ]),
+          ),
+        }),
+      }).then(async (r) => {
+        const body = await r.json();
+        if (!r.ok) throw body;
+        return body as T;
+      }))) as typeof tauriInvoke;
 
 // Typed wrappers over Tauri commands. The front never touches the DB directly;
 // everything goes through the Rust backend.

@@ -3,6 +3,8 @@
 
 mod ai;
 mod commands;
+#[cfg(feature = "devserve")]
+pub mod devserve;
 mod db;
 mod domain;
 mod events;
