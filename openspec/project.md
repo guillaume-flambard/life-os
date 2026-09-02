@@ -38,7 +38,12 @@ The engine's rigor stays invisible. Two layers run on the same engine:
 - **Current frontier = dogfooding, not new features.** The backend and AI paths
   are verified live (ignored tests hitting a real model); the OpenSpec backbone
   (`specs/`, 13 capabilities) is reconciled and every change is archived. The
-  only open item is a manual click-through of the app on a real desktop build.
+  browser-bridge click-through (devserve + vite, real engine + local model) ran
+  on 2026-09-02: every surface exercised, 11 bugs found and fixed — including
+  two `redesign-conversational-ui` regressions that had silently dropped the
+  if-then step capture (next-step spec) and the snapshot import + memory
+  refresh (sync spec). The remaining open item is a manual pass on a native
+  desktop build (WebKit rendering, keychain, native dialogs).
   Do not add feature scope without a decision.
 
 ## Stack

@@ -17,9 +17,12 @@ ressources) as the source of truth before changing anything.
   memory, review, safety, sync, onboarding, guided-decision, next-step,
   release-prep). v0.2.1 shipped that with the `harden-core` security pass;
   the OpenSpec backbone (`specs/`, 13 capabilities) is reconciled.
-- **Current frontier = dogfooding, not new features.** The only open item is
-  a manual click-through of the app on a real desktop build (the backend and
-  AI paths are verified live). Do not add feature scope without a decision.
+- **Current frontier = dogfooding, not new features.** The browser-bridge
+  click-through ran (devserve + vite, real engine): 11 bugs fixed, incl. two
+  redesign regressions that had dropped the if-then step capture and the
+  snapshot import UI. The only open item is a manual pass on a native desktop
+  build (WebKit, keychain, native dialogs). Do not add feature scope without a
+  decision.
 
 ## Non-negotiable constraints
 
