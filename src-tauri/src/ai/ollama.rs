@@ -345,7 +345,9 @@ mod live_tests {
         let health = ai.health().await;
         assert!(health.ok, "Ollama injoignable: {}", health.detail);
 
-        let d = ai.generate_delta("Je veux arrêter de scroller le soir.").await;
+        let d = ai
+            .generate_delta("Je veux arrêter de scroller le soir.")
+            .await;
         let d = d.expect("generate_delta failed");
         assert!(
             matches!(d.op.as_str(), "added" | "modified" | "removed"),
@@ -353,7 +355,9 @@ mod live_tests {
             d.op
         );
 
-        let r = ai.reformulate_intention("je voudrais faire plus de sport", None).await;
+        let r = ai
+            .reformulate_intention("je voudrais faire plus de sport", None)
+            .await;
         let r = r.expect("reformulate_intention failed");
         assert!(!r.situation.trim().is_empty(), "empty situation");
         assert!(!r.action.trim().is_empty(), "empty action");
@@ -362,19 +366,31 @@ mod live_tests {
             .suggest_options("Est-ce que je change de job cette année ?", None)
             .await;
         let o = o.expect("suggest_options failed");
-        assert!(o.options.len() >= 2, "expected >=2 options, got {}", o.options.len());
+        assert!(
+            o.options.len() >= 2,
+            "expected >=2 options, got {}",
+            o.options.len()
+        );
 
         let a = ai
-            .align_values("Tout plaquer pour un tour du monde", "Famille · Santé · Argent", None)
+            .align_values(
+                "Tout plaquer pour un tour du monde",
+                "Famille · Santé · Argent",
+                None,
+            )
             .await;
         let a = a.expect("align_values failed");
         assert!(!a.note.trim().is_empty(), "empty alignment note");
 
-        let s = ai.generate_story("Passer plus de temps avec mes proches", None).await;
+        let s = ai
+            .generate_story("Passer plus de temps avec mes proches", None)
+            .await;
         let s = s.expect("generate_story failed");
         assert!(!s.title.trim().is_empty(), "empty story title");
 
-        let w = ai.generate_woop("Rappeler mes parents chaque semaine", None).await;
+        let w = ai
+            .generate_woop("Rappeler mes parents chaque semaine", None)
+            .await;
         let w = w.expect("generate_woop failed");
         assert!(!w.cue.trim().is_empty(), "empty woop cue");
         assert!(!w.action.trim().is_empty(), "empty woop action");

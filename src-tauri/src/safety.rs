@@ -36,15 +36,39 @@ const DISTRESS: &[&str] = &[
 const HIGH_STAKES: &[(&str, &[&str])] = &[
     (
         "argent",
-        &["hypothèque", "emprunt", "faire faillite", "toutes mes économies", "tout mon argent", "crédit immobilier", "endetter"],
+        &[
+            "hypothèque",
+            "emprunt",
+            "faire faillite",
+            "toutes mes économies",
+            "tout mon argent",
+            "crédit immobilier",
+            "endetter",
+        ],
     ),
     (
         "santé",
-        &["cancer", "opération", "chirurgie", "arrêter mon traitement", "maladie grave", "chimio", "diagnostic"],
+        &[
+            "cancer",
+            "opération",
+            "chirurgie",
+            "arrêter mon traitement",
+            "maladie grave",
+            "chimio",
+            "diagnostic",
+        ],
     ),
     (
         "juridique",
-        &["divorce", "avocat", "procès", "tribunal", "garde des enfants", "héritage", "porter plainte"],
+        &[
+            "divorce",
+            "avocat",
+            "procès",
+            "tribunal",
+            "garde des enfants",
+            "héritage",
+            "porter plainte",
+        ],
     ),
 ];
 

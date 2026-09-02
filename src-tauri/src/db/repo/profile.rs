@@ -13,12 +13,12 @@ const STOPWORDS: &[&str] = &[
     "avec", "dans", "pour", "plus", "mais", "être", "cette", "chez", "sans", "quand", "tout",
     "toute", "tous", "toutes", "leur", "leurs", "elle", "elles", "nous", "vous", "moi", "toi",
     "mon", "mes", "ton", "tes", "ses", "notre", "votre", "faire", "fait", "aussi", "comme",
-    "parce", "donc", "alors", "encore", "très", "bien", "peu", "pas", "oui", "non", "que",
-    "qui", "quoi", "cela", "ceci", "vraiment", "peut", "veux", "veut", "vais", "suis",
+    "parce", "donc", "alors", "encore", "très", "bien", "peu", "pas", "oui", "non", "que", "qui",
+    "quoi", "cela", "ceci", "vraiment", "peut", "veux", "veut", "vais", "suis",
     // English
-    "with", "that", "this", "have", "from", "your", "their", "about", "would", "could",
-    "should", "there", "here", "what", "when", "where", "them", "they", "then", "than",
-    "just", "like", "really", "want", "wants", "make", "makes", "some", "more", "much",
+    "with", "that", "this", "have", "from", "your", "their", "about", "would", "could", "should",
+    "there", "here", "what", "when", "where", "them", "they", "then", "than", "just", "like",
+    "really", "want", "wants", "make", "makes", "some", "more", "much",
 ];
 
 fn is_stop(t: &str) -> bool {
@@ -48,9 +48,18 @@ pub fn extract_themes(conn: &Connection, limit: usize) -> Result<Vec<Theme>, Api
         Ok(())
     };
 
-    push(conn, "SELECT statement, action FROM intentions WHERE deleted_at IS NULL")?;
-    push(conn, "SELECT title, proposal FROM decisions WHERE deleted_at IS NULL")?;
-    push(conn, "SELECT learning, NULL FROM review_items WHERE deleted_at IS NULL")?;
+    push(
+        conn,
+        "SELECT statement, action FROM intentions WHERE deleted_at IS NULL",
+    )?;
+    push(
+        conn,
+        "SELECT title, proposal FROM decisions WHERE deleted_at IS NULL",
+    )?;
+    push(
+        conn,
+        "SELECT learning, NULL FROM review_items WHERE deleted_at IS NULL",
+    )?;
 
     let mut counts: HashMap<String, i64> = HashMap::new();
     for text in &texts {

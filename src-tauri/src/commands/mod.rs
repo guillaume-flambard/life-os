@@ -5,8 +5,8 @@ use crate::ai::Ollama;
 use crate::db::repo::{admin, capture, compass, decision, memory, profile, review, story};
 use crate::db::{repo, Db};
 use crate::domain::{
-    AlignmentNote, ApiError, Capture, Decision, DecisionDetail, DecisionFull, DecisionOption, Delta,
-    DeltaInput, DeltaResolution, DeltaRow, Domain, Health, IfThenPlan, Intention, MemoryHit,
+    AlignmentNote, ApiError, Capture, Decision, DecisionDetail, DecisionFull, DecisionOption,
+    Delta, DeltaInput, DeltaResolution, DeltaRow, Domain, Health, IfThenPlan, Intention, MemoryHit,
     MergeSummary, OpenStory, OptionSuggestions, Reformulation, Review, ReviewItem, ScreenResult,
     StoryRow, StorySuggestion, Theme, WoopSuggestion,
 };
@@ -126,7 +126,13 @@ pub fn update_intention(
     action: Option<String>,
 ) -> Result<(), ApiError> {
     let conn = db.0.lock().unwrap();
-    compass::update_intention(&conn, &id, &statement, situation.as_deref(), action.as_deref())
+    compass::update_intention(
+        &conn,
+        &id,
+        &statement,
+        situation.as_deref(),
+        action.as_deref(),
+    )
 }
 
 #[tauri::command]
@@ -189,7 +195,11 @@ pub fn decision_set_why(db: State<'_, Db>, id: String, text: String) -> Result<(
 }
 
 #[tauri::command]
-pub fn decision_set_confidence(db: State<'_, Db>, id: String, confidence: i64) -> Result<(), ApiError> {
+pub fn decision_set_confidence(
+    db: State<'_, Db>,
+    id: String,
+    confidence: i64,
+) -> Result<(), ApiError> {
     let conn = db.0.lock().unwrap();
     decision::set_confidence(&conn, &id, confidence)
 }
@@ -212,7 +222,11 @@ pub fn decision_add_option(
 }
 
 #[tauri::command]
-pub fn decision_set_premortem(db: State<'_, Db>, option_id: String, text: String) -> Result<(), ApiError> {
+pub fn decision_set_premortem(
+    db: State<'_, Db>,
+    option_id: String,
+    text: String,
+) -> Result<(), ApiError> {
     let conn = db.0.lock().unwrap();
     decision::set_option_premortem(&conn, &option_id, &text)
 }
@@ -228,7 +242,10 @@ pub fn decision_choose_option(
 }
 
 #[tauri::command]
-pub fn decision_list_options(db: State<'_, Db>, decision_id: String) -> Result<Vec<DecisionOption>, ApiError> {
+pub fn decision_list_options(
+    db: State<'_, Db>,
+    decision_id: String,
+) -> Result<Vec<DecisionOption>, ApiError> {
     let conn = db.0.lock().unwrap();
     decision::list_options(&conn, &decision_id)
 }
@@ -253,7 +270,14 @@ pub fn decision_add_story(
     done_when: Option<String>,
 ) -> Result<StoryRow, ApiError> {
     let conn = db.0.lock().unwrap();
-    decision::add_story(&conn, &decision_id, &title, why.as_deref(), when_cue.as_deref(), done_when.as_deref())
+    decision::add_story(
+        &conn,
+        &decision_id,
+        &title,
+        why.as_deref(),
+        when_cue.as_deref(),
+        done_when.as_deref(),
+    )
 }
 
 #[tauri::command]
@@ -408,7 +432,9 @@ pub async fn memory_backfill(db: State<'_, Db>, ai: State<'_, Ollama>) -> Result
             }
             Err(e) => {
                 if n == 0 {
-                    return Err(ApiError::ai(format!("modèle d'embedding indisponible : {e}")));
+                    return Err(ApiError::ai(format!(
+                        "modèle d'embedding indisponible : {e}"
+                    )));
                 }
                 break;
             }
@@ -443,7 +469,9 @@ pub async fn contradiction_check(
             .map(|h| h.content)
             .collect()
     };
-    ai.contradiction_question(&text, &related).await.map_err(ApiError::ai)
+    ai.contradiction_question(&text, &related)
+        .await
+        .map_err(ApiError::ai)
 }
 
 // --- Safety (distress screening, export, erase) ---------------------------
@@ -461,10 +489,18 @@ pub fn export_data(db: State<'_, Db>) -> Result<String, ApiError> {
         let conn = db.0.lock().unwrap();
         admin::export_markdown(&conn)?
     };
-    let home = std::env::var("HOME").map_err(|_| ApiError::invalid("dossier utilisateur introuvable".to_string()))?;
+    let home = std::env::var("HOME")
+        .map_err(|_| ApiError::invalid("dossier utilisateur introuvable".to_string()))?;
     let downloads = std::path::Path::new(&home).join("Downloads");
-    let dir = if downloads.is_dir() { downloads } else { std::path::PathBuf::from(&home) };
-    let name = format!("life-os-export-{}.md", chrono::Utc::now().format("%Y%m%d-%H%M%S"));
+    let dir = if downloads.is_dir() {
+        downloads
+    } else {
+        std::path::PathBuf::from(&home)
+    };
+    let name = format!(
+        "life-os-export-{}.md",
+        chrono::Utc::now().format("%Y%m%d-%H%M%S")
+    );
     let path = dir.join(name);
     std::fs::write(&path, markdown).map_err(ApiError::db)?;
     Ok(path.to_string_lossy().into_owned())
@@ -564,7 +600,9 @@ pub fn captures_recent(db: State<'_, Db>, limit: Option<i64>) -> Result<Vec<Capt
 #[tauri::command]
 pub fn sync_export(db: State<'_, Db>, passphrase: String) -> Result<String, ApiError> {
     if passphrase.len() < 8 {
-        return Err(ApiError::invalid("choisis une phrase secrète d'au moins 8 caractères".to_string()));
+        return Err(ApiError::invalid(
+            "choisis une phrase secrète d'au moins 8 caractères".to_string(),
+        ));
     }
     let snapshot = {
         let conn = db.0.lock().unwrap();
@@ -573,21 +611,34 @@ pub fn sync_export(db: State<'_, Db>, passphrase: String) -> Result<String, ApiE
     let bytes = serde_json::to_vec(&snapshot).map_err(ApiError::db)?;
     let encrypted = sync::encrypt(&bytes, &passphrase).map_err(ApiError::invalid)?;
 
-    let home = std::env::var("HOME").map_err(|_| ApiError::invalid("dossier utilisateur introuvable".to_string()))?;
+    let home = std::env::var("HOME")
+        .map_err(|_| ApiError::invalid("dossier utilisateur introuvable".to_string()))?;
     let downloads = std::path::Path::new(&home).join("Downloads");
-    let dir = if downloads.is_dir() { downloads } else { std::path::PathBuf::from(&home) };
-    let name = format!("life-os-sync-{}.age", chrono::Utc::now().format("%Y%m%d-%H%M%S"));
+    let dir = if downloads.is_dir() {
+        downloads
+    } else {
+        std::path::PathBuf::from(&home)
+    };
+    let name = format!(
+        "life-os-sync-{}.age",
+        chrono::Utc::now().format("%Y%m%d-%H%M%S")
+    );
     let path = dir.join(name);
     std::fs::write(&path, encrypted).map_err(ApiError::db)?;
     Ok(path.to_string_lossy().into_owned())
 }
 
 #[tauri::command]
-pub fn sync_import(db: State<'_, Db>, path: String, passphrase: String) -> Result<MergeSummary, ApiError> {
-    let encrypted = std::fs::read(&path).map_err(|_| ApiError::invalid("fichier introuvable".to_string()))?;
+pub fn sync_import(
+    db: State<'_, Db>,
+    path: String,
+    passphrase: String,
+) -> Result<MergeSummary, ApiError> {
+    let encrypted =
+        std::fs::read(&path).map_err(|_| ApiError::invalid("fichier introuvable".to_string()))?;
     let bytes = sync::decrypt(&encrypted, &passphrase).map_err(ApiError::invalid)?;
-    let snapshot: serde_json::Value =
-        serde_json::from_slice(&bytes).map_err(|_| ApiError::invalid("instantané illisible".to_string()))?;
+    let snapshot: serde_json::Value = serde_json::from_slice(&bytes)
+        .map_err(|_| ApiError::invalid("instantané illisible".to_string()))?;
     let conn = db.0.lock().unwrap();
     sync::import_merge(&conn, &snapshot)
 }

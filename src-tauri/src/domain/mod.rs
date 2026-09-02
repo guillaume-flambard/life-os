@@ -11,10 +11,16 @@ pub struct Health {
 
 impl Health {
     pub fn ok(detail: impl Into<String>) -> Self {
-        Self { ok: true, detail: detail.into() }
+        Self {
+            ok: true,
+            detail: detail.into(),
+        }
     }
     pub fn ko(detail: impl Into<String>) -> Self {
-        Self { ok: false, detail: detail.into() }
+        Self {
+            ok: false,
+            detail: detail.into(),
+        }
     }
 }
 
@@ -72,19 +78,34 @@ pub struct ApiError {
 
 impl ApiError {
     pub fn cap_reached(message: impl Into<String>) -> Self {
-        Self { code: "cap_reached".into(), message: message.into() }
+        Self {
+            code: "cap_reached".into(),
+            message: message.into(),
+        }
     }
     pub fn db(e: impl std::fmt::Display) -> Self {
-        Self { code: "db".into(), message: e.to_string() }
+        Self {
+            code: "db".into(),
+            message: e.to_string(),
+        }
     }
     pub fn invalid(message: impl Into<String>) -> Self {
-        Self { code: "invalid".into(), message: message.into() }
+        Self {
+            code: "invalid".into(),
+            message: message.into(),
+        }
     }
     pub fn ai(message: impl Into<String>) -> Self {
-        Self { code: "ai".into(), message: message.into() }
+        Self {
+            code: "ai".into(),
+            message: message.into(),
+        }
     }
     pub fn incomplete(message: impl Into<String>) -> Self {
-        Self { code: "incomplete".into(), message: message.into() }
+        Self {
+            code: "incomplete".into(),
+            message: message.into(),
+        }
     }
 }
 

@@ -281,8 +281,10 @@ mod tests {
         decision::add_option(&conn, &d.id, "aucune de celles-là", true).unwrap();
 
         decision::choose_option(&conn, &d.id, &chosen.id).unwrap();
-        decision::set_option_premortem(&conn, &chosen.id, "j'ai signé sans voir la charge").unwrap();
-        decision::set_distance(&conn, &d.id, "10 min: net; 10 mois: posé; 10 ans: logique").unwrap();
+        decision::set_option_premortem(&conn, &chosen.id, "j'ai signé sans voir la charge")
+            .unwrap();
+        decision::set_distance(&conn, &d.id, "10 min: net; 10 mois: posé; 10 ans: logique")
+            .unwrap();
         decision::set_why(&conn, &d.id, "retrouver de l'énergie le soir").unwrap();
         decision::add_story(&conn, &d.id, "mettre mon CV à jour", None, None, None).unwrap();
 
@@ -292,7 +294,10 @@ mod tests {
         let detail = decision::get_detail(&conn, &d.id).unwrap();
         assert_eq!(detail.options.len(), 3);
         assert!(detail.options.iter().any(|o| o.is_null_option));
-        assert!(detail.options.iter().any(|o| o.chosen && o.premortem.is_some()));
+        assert!(detail
+            .options
+            .iter()
+            .any(|o| o.chosen && o.premortem.is_some()));
         assert!(detail.decision.distance_10_10_10.is_some());
         assert!(detail.decision.proposal.is_some());
         assert_eq!(detail.stories.len(), 1);
@@ -947,7 +952,15 @@ mod tests {
 
         // A compass with one intention, so alignment has something to read.
         let dom = compass::create_domain(&conn, "Santé").unwrap();
-        compass::create_intention(&conn, &dom.id, "Bouger tous les jours", Some("mon réveil sonne"), Some("je sors marcher 10 minutes"), "should").unwrap();
+        compass::create_intention(
+            &conn,
+            &dom.id,
+            "Bouger tous les jours",
+            Some("mon réveil sonne"),
+            Some("je sors marcher 10 minutes"),
+            "should",
+        )
+        .unwrap();
 
         let ai = Ollama::from_env();
         assert!(ai.health().await.ok, "Ollama injoignable");
@@ -965,7 +978,11 @@ mod tests {
             .filter(|o| !o.trim().is_empty())
             .take(4)
             .collect();
-        assert!(real.len() >= 2, "expected >=2 AI options, got {}", real.len());
+        assert!(
+            real.len() >= 2,
+            "expected >=2 AI options, got {}",
+            real.len()
+        );
 
         // 2) Persist them + the explicit null option, exactly like the flow.
         let mut opts = Vec::new();
@@ -978,8 +995,18 @@ mod tests {
         // 3) Weigh one, then debias it.
         let chosen = &opts[0];
         decision::choose_option(&conn, &d.id, &chosen.id).unwrap();
-        decision::set_option_premortem(&conn, &chosen.id, "j'ai visé sept séances par semaine et tout lâché au mois de février").unwrap();
-        decision::set_distance(&conn, &d.id, "10 min: motivé; 10 mois: ça tient; 10 ans: une habitude").unwrap();
+        decision::set_option_premortem(
+            &conn,
+            &chosen.id,
+            "j'ai visé sept séances par semaine et tout lâché au mois de février",
+        )
+        .unwrap();
+        decision::set_distance(
+            &conn,
+            &d.id,
+            "10 min: motivé; 10 mois: ça tient; 10 ans: une habitude",
+        )
+        .unwrap();
         decision::set_why(&conn, &d.id, "de l'énergie pour les gens que j'aime").unwrap();
 
         // 4) Alignment against the compass (real model), then confidence.
