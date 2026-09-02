@@ -10,7 +10,7 @@ Everything stays on your device. The AI runs locally. Nothing phones home.
 
 > Status: the full MVP is built (compass, guided decision, review, memory,
 > onboarding, safety) plus a light daily loop and encrypted multi-device sync.
-> Pre-1.0, dogfooded by its author.
+> Pre-1.0, hardened in v0.2.1, dogfooded by its author.
 
 ## Why it's different
 
@@ -100,8 +100,11 @@ in the OS keychain (Credential Manager on Windows).
 
 ### Installing a build (unsigned)
 
-The builds are not code-signed yet, so the OS warns on first open — this is expected
-for a pre-1.0 open-source app:
+Download the latest build from the
+[releases page](https://github.com/guillaume-flambard/life-os/releases): a macOS
+`.dmg` (Apple Silicon) and Windows installers (`.msi` / `.exe`) are attached to
+each tag. The builds are not code-signed yet, so the OS warns on first open —
+this is expected for a pre-1.0 open-source app:
 
 - **macOS**: right-click the app → **Open** → **Open** (once).
 - **Windows**: run the `.msi`; on the SmartScreen prompt, **More info → Run anyway**.
