@@ -3,6 +3,32 @@
 All notable changes to Life OS. The app is local-first and offline; versions
 track the desktop app only.
 
+## 0.2.2 — 2026-09-02
+
+A full dogfooding pass over every surface, found and fixed.
+
+- **Two lost features restored**: the guided-decision flow offers the "when …,
+  I …" anchor again (with the optional assist pre-filling it, manual always
+  works), and the anchor now shows on Today and in the thread's follow-through;
+  Settings can import an encrypted snapshot again and refresh the memory after
+  a restore. Both had been dropped by the conversational rebuild while their
+  specs still required them.
+- **Erase unblocked**: the confirmation word the UI asks for ("ERASE") now
+  matches what the backend accepts — erasing was failing in both languages.
+- **Safety**: screening catches more real phrasings ("ending it all", "can't
+  go on", French variants) and typographic apostrophes; a miss is the one
+  thing this screen must not do.
+- **AI output**: reformulations no longer stutter ("When when I…, I I…"),
+  suggested options and next steps are short and concrete, and leaked
+  `\uXXXX` escapes from small models are decoded before anything is shown.
+- **Language & dates**: menu labels translate in French mode; dates follow the
+  UI language instead of hardcoding French; the Markdown export is
+  consistently English; curly quotes render as quotes, not `\u201c`.
+- **Composer**: send buttons carry their contextual label ("Keep", "Anchor
+  it", "That's my step") instead of a bare arrow.
+- **Dev bridge**: compiles against the current AI client and announces its
+  address only after binding.
+
 ## 0.2.1 — 2026-09-02
 
 Security and data-integrity hardening, plus honest feedback in the UI.
