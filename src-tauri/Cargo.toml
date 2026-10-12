@@ -6,6 +6,9 @@ authors = ["Guillaume Flambard"]
 license = "AGPL-3.0-or-later"
 edition = "2021"
 rust-version = "1.77"
+# the devserve bin makes this a multi-binary package; `cargo run` (and tauri
+# dev) must keep resolving to the app itself
+default-run = "life-os"
 
 [features]
 # by default Tauri runs in production mode; custom-protocol used for release
